@@ -199,13 +199,84 @@
             gap: 10px;
         }
 
-        .chat-messages {
-            max-height: 200px;
+        /* Novos estilos para o chat */
+        .chat-container {
+            display: flex;
+            gap: 20px;
+            height: 70vh;
+        }
+
+        .users-list {
+            width: 250px;
+            border-right: 2px solid #2c3e50;
+            padding-right: 15px;
             overflow-y: auto;
-            margin-bottom: 1rem;
+        }
+
+        .chat-box {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
             padding: 10px;
-            background: #1a2a4a;
+            background: #1a2a3a;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 12px;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: 10px 15px;
+            margin: 8px 0;
+            border-radius: 15px;
+            word-break: break-word;
+        }
+
+        .message-admin {
+            background: #2c3e50;
+            margin-left: auto;
+        }
+
+        .message-user {
+            background: #d32f2f;
+            margin-right: auto;
+        }
+
+        .user-chat-item {
+            padding: 10px;
+            margin: 5px 0;
+            cursor: pointer;
             border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .user-chat-item:hover {
+            background: #2c3e50;
+        }
+
+        .user-chat-item.online {
+            border-left: 4px solid #00ff00;
+        }
+
+        .message-time {
+            font-size: 0.75rem;
+            color: #cccccc;
+            margin-top: 4px;
+            text-align: right;
         }
     </style>
 </head>
@@ -360,12 +431,23 @@
         <!-- Aba Chat -->
         <div id="aba-chat" class="aba hidden">
             <h2>Chat</h2>
-            <select id="chat-usuario" onchange="carregarMensagens(this.value)">
-                <option value="">Selecione um usuário</option>
-            </select>
-            <div class="chat-messages" id="mensagens-chat"></div>
-            <input type="text" id="mensagem-chat" placeholder="Digite sua mensagem...">
-            <button onclick="enviarMensagemChat()">Enviar</button>
+            <div class="chat-container">
+                <div class="users-list">
+                    <h3>Usuários Online</h3>
+                    <div id="lista-usuarios-chat"></div>
+                </div>
+                <div class="chat-box">
+                    <div class="chat-header">
+                        <span id="chat-usuario-selecionado">Selecione um usuário para começar o chat</span>
+                    </div>
+                    <div class="chat-messages" id="mensagens-chat"></div>
+                    <div class="chat-input">
+                        <input type="text" id="mensagem-chat" placeholder="Digite sua mensagem..." 
+                               onkeypress="if(event.key === 'Enter') enviarMensagemChat()">
+                        <button onclick="enviarMensagemChat()">Enviar</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
@@ -383,6 +465,7 @@
 
         let db, auth;
         let currentUserId = null;
+        let selectedChatUser = null;
 
         try {
             firebase.initializeApp(firebaseConfig);
@@ -393,10 +476,9 @@
             alert('Erro ao carregar Firebase: ' + e.message);
         }
 
-        // Função para formatar data no padrão brasileiro (DDMMYYYY)
         function formatarDataBrasileira(data) {
             const partes = data.split('-');
-            return partes[2] + partes[1] + partes[0]; // DDMMYYYY
+            return partes[2] + partes[1] + partes[0];
         }
 
         function mostrarTela(idTela) {
@@ -428,7 +510,6 @@
             document.getElementById(`aba-${aba}`).classList.remove('hidden');
         }
 
-        // Função para sair da área do aluno e definir offline
         function sairAreaAluno() {
             if (currentUserId) {
                 db.collection('Alunos').doc(currentUserId).update({
@@ -439,7 +520,7 @@
             mostrarTela('tela-inicial');
         }
 
-        // Função para carregar usuários aprovados em tempo real
+        // Funções para gerenciar usuários
         function carregarUsuarios() {
             const lista = document.getElementById('lista-usuarios');
             const search = document.getElementById('search-usuarios');
@@ -482,7 +563,6 @@
             search.addEventListener('input', () => carregarUsuarios());
         }
 
-        // Função para carregar usuários pendentes em tempo real
         function carregarUsuariosPendentes() {
             const lista = document.getElementById('lista-usuarios-pendentes');
             const search = document.getElementById('search-pendentes');
@@ -515,7 +595,6 @@
             search.addEventListener('input', () => carregarUsuariosPendentes());
         }
 
-        // Função para carregar usuários negados em tempo real
         function carregarUsuariosNegados() {
             const lista = document.getElementById('lista-usuarios-negados');
             const search = document.getElementById('search-negados');
@@ -546,7 +625,6 @@
             search.addEventListener('input', () => carregarUsuariosNegados());
         }
 
-        // Função para aprovar usuário
         async function aprovarUsuario(id) {
             await db.collection('Alunos').doc(id).update({
                 status: 'aprovado',
@@ -555,130 +633,103 @@
             });
         }
 
-        // Função para negar usuário
         async function negarUsuario(id) {
             const motivo = prompt('Digite o motivo da negação:');
             if (motivo) {
                 await db.collection('Alunos').doc(id).update({
                     status: 'negado',
                     negadoPor: auth.currentUser ? auth.currentUser.uid : 'admin',
-                    motivoNegacao: motivo
+                    motivoNegacao: motivo,
+                    notificacao: {
+                        mensagem: `Seu cadastro foi negado. Motivo: ${motivo}`,
+                        lida: false,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    }
                 });
             }
         }
 
-        // Função para editar usuário com pop-up
-        async function editarUsuario(id) {
-            const doc = await db.collection('Alunos').doc(id).get();
-            const usuario = doc.data();
-
-            const form = document.createElement('form');
-            form.className = 'edit-form';
-            form.innerHTML = `
-                <input type="text" name="nomeCompleto" value="${usuario.nomeCompleto}" placeholder="Nome Completo" required>
-                <input type="text" name="matricula" value="${usuario.matricula}" placeholder="Matrícula" required>
-                <input type="email" name="email" value="${usuario.email}" placeholder="Email" required>
-                <input type="date" name="dataNascimento" value="${usuario.dataNascimento}" required>
-                <input type="text" name="whatsapp" value="${usuario.whatsapp}" placeholder="WhatsApp" required>
-                <select name="admin">
-                    <option value="no" ${usuario.admin !== 'yes' ? 'selected' : ''}>Usuário Comum</option>
-                    <option value="yes" ${usuario.admin === 'yes' ? 'selected' : ''}>Administrador</option>
-                </select>
-                <button type="submit">Salvar</button>
-                <button type="button" onclick="excluirUsuario('${id}')">Excluir</button>
-            `;
-
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const data = {
-                    nomeCompleto: form.nomeCompleto.value,
-                    matricula: form.matricula.value,
-                    email: form.email.value,
-                    dataNascimento: form.dataNascimento.value,
-                    whatsapp: form.whatsapp.value,
-                    admin: form.admin.value
-                };
-                await db.collection('Alunos').doc(id).update(data);
-                fecharModal();
-            });
-
-            mostrarModal('Editar Usuário', form, 'sucesso');
-        }
-
-        // Função para excluir usuário
-        async function excluirUsuario(id) {
-            if (confirm('Deseja realmente excluir este usuário?')) {
-                await db.collection('Alunos').doc(id).delete();
-                fecharModal();
-            }
-        }
-
-        // Função para carregar usuários no chat
+        // Funções do Chat
         function carregarUsuariosChat() {
-            const select = document.getElementById('chat-usuario');
-            db.collection('Alunos').where('status', '==', 'aprovado').onSnapshot(snapshot => {
-                select.innerHTML = '<option value="">Selecione um usuário</option>';
-                snapshot.forEach(doc => {
-                    const aluno = doc.data();
-                    const option = document.createElement('option');
-                    option.value = doc.id;
-                    option.textContent = `${aluno.nomeCompleto} (${aluno.usuario})`;
-                    select.appendChild(option);
-                });
-            });
+            const lista = document.getElementById('lista-usuarios-chat');
+            
+            db.collection('Alunos')
+              .where('status', '==', 'aprovado')
+              .onSnapshot(snapshot => {
+                  lista.innerHTML = '';
+                  snapshot.forEach(doc => {
+                      const usuario = doc.data();
+                      const div = document.createElement('div');
+                      div.className = `user-chat-item ${usuario.online ? 'online' : ''}`;
+                      div.innerHTML = `
+                          <div>
+                              ${usuario.online ? '<span class="online-indicator"></span>' : '<span class="offline-indicator"></span>'}
+                              <strong>${usuario.nomeCompleto}</strong>
+                          </div>
+                          <small>${usuario.usuario}</small>
+                      `;
+                      div.onclick = () => iniciarChat(doc.id, usuario.nomeCompleto);
+                      lista.appendChild(div);
+                  });
+              });
         }
 
-        // Função para carregar mensagens do chat em tempo real
-        function carregarMensagens(usuarioId) {
-            if (!usuarioId) {
-                document.getElementById('mensagens-chat').innerHTML = '';
-                return;
-            }
+        function iniciarChat(userId, userName) {
+            selectedChatUser = userId;
+            document.getElementById('chat-usuario-selecionado').textContent = `Chat com ${userName}`;
+            carregarMensagens(userId);
+        }
+
+        function carregarMensagens(userId) {
             const mensagens = document.getElementById('mensagens-chat');
             mensagens.innerHTML = '';
 
             db.collection('Chat')
-                .where('usuarioId', '==', usuarioId)
-                .orderBy('timestamp')
-                .onSnapshot(snapshot => {
-                    mensagens.innerHTML = '';
-                    snapshot.forEach(doc => {
-                        const mensagem = doc.data();
-                        const div = document.createElement('div');
-                        div.textContent = `${mensagem.remetente}: ${mensagem.texto}`;
-                        mensagens.appendChild(div);
-                    });
-                    mensagens.scrollTop = mensagens.scrollHeight; // Rolagem automática para a última mensagem
-                });
+              .where('participants', 'array-contains', userId)
+              .orderBy('timestamp')
+              .onSnapshot(snapshot => {
+                  mensagens.innerHTML = '';
+                  snapshot.forEach(doc => {
+                      const msg = doc.data();
+                      const div = document.createElement('div');
+                      div.className = `message-bubble ${msg.sender === 'admin' ? 'message-admin' : 'message-user'}`;
+                      div.innerHTML = `
+                          <div class="message-content">${msg.texto}</div>
+                          <div class="message-time">${new Date(msg.timestamp?.toDate()).toLocaleTimeString()}</div>
+                      `;
+                      mensagens.appendChild(div);
+                  });
+                  mensagens.scrollTop = mensagens.scrollHeight;
+              });
         }
 
-        // Função para enviar mensagem no chat
         async function enviarMensagemChat() {
-            const mensagem = document.getElementById('mensagem-chat').value.trim();
-            const usuarioId = document.getElementById('chat-usuario').value;
-
-            if (!usuarioId || !mensagem) return;
+            const input = document.getElementById('mensagem-chat');
+            const texto = input.value.trim();
+            
+            if (!texto || !selectedChatUser) return;
 
             try {
                 await db.collection('Chat').add({
-                    usuarioId,
-                    remetente: 'Administrador',
-                    texto: mensagem,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    texto,
+                    sender: 'admin',
+                    receiver: selectedChatUser,
+                    participants: ['admin', selectedChatUser],
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    lido: false
                 });
-                document.getElementById('mensagem-chat').value = '';
+                input.value = '';
             } catch (error) {
                 console.error('Erro ao enviar mensagem:', error);
             }
         }
 
+        // Inicialização
         document.addEventListener('DOMContentLoaded', () => {
             // Cadastro Aluno
-            const formAluno = document.getElementById('formCadastroAluno');
-
-            formAluno.addEventListener('submit', async (e) => {
+            document.getElementById('formCadastroAluno').addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const values = Array.from(formAluno.elements)
+                const values = Array.from(e.target.elements)
                     .filter(el => el.tagName === 'INPUT')
                     .map(el => el.value);
 
@@ -701,7 +752,7 @@
                     });
                     
                     mostrarModal('Cadastro Realizado', `Seu cadastro está pendente de aprovação.\nUsuário: ${values[1]}\nSenha: ${senha}`, 'pendente');
-                    formAluno.reset();
+                    e.target.reset();
                     mostrarTela('login-aluno');
                 } catch (error) {
                     console.error('Erro no cadastro:', error);
@@ -718,6 +769,10 @@
                     if (matricula === 'admin' && senha === 'admin') {
                         mostrarModal('Sucesso', 'Login como administrador realizado com sucesso!', 'sucesso');
                         mostrarTela('painel-admin');
+                        carregarUsuarios();
+                        carregarUsuariosPendentes();
+                        carregarUsuariosNegados();
+                        carregarUsuariosChat();
                         return;
                     }
 
@@ -745,6 +800,10 @@
                         await db.collection('Alunos').doc(alunoId).update({ online: true });
                         if (aluno.admin === 'yes') {
                             mostrarTela('painel-admin');
+                            carregarUsuarios();
+                            carregarUsuariosPendentes();
+                            carregarUsuariosNegados();
+                            carregarUsuariosChat();
                         } else {
                             if (aluno.mensagemAdmin) {
                                 document.getElementById('mensagem-admin').classList.remove('hidden');
@@ -813,9 +872,19 @@
                 }
             });
 
+            // Listener para atualizações em tempo real
+            auth.onAuthStateChanged(user => {
+                if (user && user.uid === 'admin') {
+                    db.collection('Alunos')
+                      .where('status', '==', 'pendente')
+                      .onSnapshot(snapshot => {
+                          carregarUsuariosPendentes();
+                      });
+                }
+            });
+
             document.getElementById('overlay').addEventListener('click', fecharModal);
 
-            // Atualizar status offline ao fechar a janela
             window.addEventListener('beforeunload', () => {
                 if (currentUserId) {
                     db.collection('Alunos').doc(currentUserId).update({
