@@ -287,7 +287,12 @@
     };
 
     // Inicializar Firebase
-    firebase.initializeApp(firebaseConfig);
+    try {
+      firebase.initializeApp(firebaseConfig);
+      console.log("Firebase inicializado com sucesso");
+    } catch (error) {
+      console.error("Erro ao inicializar Firebase: ", error);
+    }
     const db = firebase.firestore();
 
     // Função para mostrar a tela desejada
@@ -311,11 +316,7 @@
         const nomeValido = nomeInputPaciente.value.trim().length > 0;
         const dataValida = dataInputPaciente.value !== "";
         const termosAceitos = termosCheckboxPaciente.checked;
-        const formularioValido = nomeValido && dataValida && termosAceitos;
-        cadastrarPacienteBtn.disabled = !formularioValido;
-
-        nomeInputPaciente.style.borderColor = nomeValido ? "#ccc" : "#ff4444";
-        dataInputPaciente.style.borderColor = dataValida ? "#ccc" : "#ff4444";
+        cadastrarPacienteBtn.disabled = !(nomeValido && dataValida && termosAceitos);
       }
 
       nomeInputPaciente.addEventListener("input", validarFormularioCadastroPaciente);
@@ -350,8 +351,8 @@
             cadastroPacienteForm.reset();
             validarFormularioCadastroPaciente();
           } catch (error) {
-            console.error("Erro ao cadastrar: ", error);
-            alert("Erro ao realizar cadastro. Tente novamente.");
+            console.error("Erro ao cadastrar paciente: ", error);
+            alert("Erro ao realizar cadastro. Verifique o console para mais detalhes.");
           }
         }
       });
@@ -392,15 +393,10 @@
       function validarFormularioCadastroAluno() {
         const nomeValido = nomeAlunoInput.value.trim().length > 0;
         const matriculaValida = matriculaInput.value.trim().length > 0;
-        const emailValido = emailAlunoInput.value.trim().length > 0 && /\S+@\S+\.\S+/.test(emailAlunoInput.value);
+        const emailValido = emailAlunoInput.value.trim().length > 0;
         const dataValida = dataNascimentoAlunoInput.value !== "";
-        const formularioValido = nomeValido && matriculaValida && emailValido && dataValida;
-        cadastrarAlunoBtn.disabled = !formularioValido;
-
-        nomeAlunoInput.style.borderColor = nomeValido ? "#ccc" : "#ff4444";
-        matriculaInput.style.borderColor = matriculaValida ? "#ccc" : "#ff4444";
-        emailAlunoInput.style.borderColor = emailValido ? "#ccc" : "#ff4444";
-        dataNascimentoAlunoInput.style.borderColor = dataValida ? "#ccc" : "#ff4444";
+        cadastrarAlunoBtn.disabled = !(nomeValido && matriculaValida && emailValido && dataValida);
+        console.log("Validação Aluno:", { nomeValido, matriculaValida, emailValido, dataValida });
       }
 
       nomeAlunoInput.addEventListener("input", validarFormularioCadastroAluno);
@@ -411,6 +407,8 @@
 
       cadastroAlunoForm.addEventListener("submit", async (event) => {
         event.preventDefault();
+        console.log("Formulário de aluno enviado");
+
         if (!cadastrarAlunoBtn.disabled) {
           const nomeCompleto = nomeAlunoInput.value.trim();
           const [nome, ...sobrenomeArr] = nomeCompleto.split(" ");
@@ -420,7 +418,10 @@
           const dataNascimento = dataNascimentoAlunoInput.value;
           const usuario = `${nome}${sobrenome}${matricula}`.toLowerCase();
 
+          console.log("Dados a serem salvos na coleção 'Alunos':", { nomeCompleto, matricula, email, dataNascimento, usuario });
+
           try {
+            // Salvar na coleção "Alunos" no Firestore
             await db.collection("Alunos").doc(usuario).set({
               nomeCompleto: nomeCompleto,
               matricula: matricula,
@@ -431,14 +432,21 @@
               approved: "No",
               timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
+            console.log("Dados salvos na coleção 'Alunos' com sucesso");
+
+            // Exibir pop-up após salvar
             alert(`Solicitação de registro de aluno feita!\nO seu usuário é: ${matricula}\nSua senha é: ${dataNascimento}\nGuarde essas informações!`);
-            mostrarTela('telaInicial'); // Volta para a tela inicial após fechar o pop-up
+
+            // Voltar à tela inicial após fechar o pop-up
+            mostrarTela('telaInicial');
             cadastroAlunoForm.reset();
             validarFormularioCadastroAluno();
           } catch (error) {
-            console.error("Erro ao cadastrar aluno: ", error);
-            alert("Erro ao realizar cadastro. Tente novamente.");
+            console.error("Erro ao salvar na coleção 'Alunos': ", error);
+            alert("Erro ao realizar cadastro. Verifique o console para mais detalhes.");
           }
+        } else {
+          console.log("Botão desabilitado. Campos obrigatórios não preenchidos.");
         }
       });
 
