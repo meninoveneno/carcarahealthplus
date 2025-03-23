@@ -145,6 +145,15 @@
             font-size: 0.8rem;
             margin-left: 8px;
         }
+
+        .admin-container {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .lista-usuarios {
+            flex: 1;
+        }
     </style>
 </head>
 <body>
@@ -246,7 +255,7 @@
         <h1>Login Paciente</h1>
         <form id="formLoginPaciente">
             <input type="text" placeholder="Usuário" required>
-            <input type="date" placeholder="Data de Nascimento" required>
+            <input type="text" placeholder="Senha" required>
             <button type="submit">Entrar</button>
             <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-paciente')">Voltar</button>
         </form>
@@ -265,8 +274,16 @@
     <!-- Painel do Administrador -->
     <div id="painel-admin" class="container hidden">
         <h1>Painel do Administrador <span class="badge-admin">Admin</span></h1>
-        <input type="text" id="pesquisa-aluno" placeholder="Pesquisar aluno..." oninput="filtrarAlunos()">
-        <div id="lista-alunos"></div>
+        <div class="admin-container">
+            <div class="lista-usuarios">
+                <h2>Usuários Online</h2>
+                <div id="lista-usuarios-online"></div>
+            </div>
+            <div class="lista-usuarios">
+                <h2>Usuários Pendentes</h2>
+                <div id="lista-usuarios-pendentes"></div>
+            </div>
+        </div>
         <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
     </div>
 
@@ -324,69 +341,56 @@
             document.getElementById('overlay').style.display = 'none';
         }
 
-        // Função para carregar alunos
-        async function carregarAlunos() {
-            const lista = document.getElementById('lista-alunos');
+        // Função para carregar usuários online
+        async function carregarUsuariosOnline() {
+            const lista = document.getElementById('lista-usuarios-online');
             lista.innerHTML = '';
 
-            const snapshot = await db.collection('Alunos').get();
-            const alunos = [];
-
+            const snapshot = await db.collection('UsuariosOnline').get();
             snapshot.forEach(doc => {
-                const aluno = doc.data();
-                aluno.id = doc.id;
-                alunos.push(aluno);
-            });
-
-            // Ordena alunos: administradores primeiro
-            const adminSnapshot = await db.collection('Administradores').get();
-            const admins = adminSnapshot.docs.map(doc => doc.id);
-
-            alunos.sort((a, b) => {
-                const aIsAdmin = admins.includes(a.usuario);
-                const bIsAdmin = admins.includes(b.usuario);
-                return bIsAdmin - aIsAdmin;
-            });
-
-            alunos.forEach(aluno => {
+                const usuario = doc.data();
                 const div = document.createElement('div');
                 div.innerHTML = `
-                    <p><strong>${aluno.nomeCompleto}</strong> (${aluno.usuario}) 
-                    ${admins.includes(aluno.usuario) ? '<span class="badge-admin">Admin</span>' : ''}</p>
-                    <button onclick="verAluno('${aluno.id}')">Ver</button>
-                    <button onclick="editarAluno('${aluno.id}')">Editar</button>
-                    <button onclick="bloquearAluno('${aluno.id}')">Bloquear</button>
-                    <button onclick="excluirAluno('${aluno.id}')">Excluir</button>
+                    <p><strong>${usuario.nome}</strong> (${usuario.tipo}) 
+                    ${usuario.tipo === 'admin' ? '<span class="badge-admin">Admin</span>' : ''}</p>
+                    <button onclick="abrirChat('${usuario.id}')">Chat</button>
+                    <button onclick="editarUsuario('${usuario.id}')">Editar</button>
+                    <button onclick="bloquearUsuario('${usuario.id}')">Bloquear</button>
+                    <button onclick="excluirUsuario('${usuario.id}')">Excluir</button>
                 `;
                 lista.appendChild(div);
             });
         }
 
-        function filtrarAlunos() {
-            const termo = document.getElementById('pesquisa-aluno').value.toLowerCase();
-            const alunos = document.querySelectorAll('#lista-alunos div');
+        // Função para carregar usuários pendentes
+        async function carregarUsuariosPendentes() {
+            const lista = document.getElementById('lista-usuarios-pendentes');
+            lista.innerHTML = '';
 
-            alunos.forEach(aluno => {
-                const nome = aluno.textContent.toLowerCase();
-                if (nome.includes(termo)) {
-                    aluno.style.display = 'block';
-                } else {
-                    aluno.style.display = 'none';
-                }
+            const snapshot = await db.collection('Alunos').where('status', '==', 'pendente').get();
+            snapshot.forEach(doc => {
+                const aluno = doc.data();
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <p><strong>${aluno.nomeCompleto}</strong> (${aluno.usuario})</p>
+                    <button onclick="aprovarAluno('${doc.id}')">Aprovar</button>
+                    <button onclick="negarAluno('${doc.id}')">Negar</button>
+                `;
+                lista.appendChild(div);
             });
         }
 
         // Função para abrir chat
-        function abrirChat(alunoId) {
+        function abrirChat(usuarioId) {
             mostrarTela('chat');
-            carregarMensagens(alunoId);
+            carregarMensagens(usuarioId);
         }
 
-        async function carregarMensagens(alunoId) {
+        async function carregarMensagens(usuarioId) {
             const mensagens = document.getElementById('mensagens-chat');
             mensagens.innerHTML = '';
 
-            const snapshot = await db.collection('Chat').where('alunoId', '==', alunoId).get();
+            const snapshot = await db.collection('Chat').where('usuarioId', '==', usuarioId).get();
             snapshot.forEach(doc => {
                 const mensagem = doc.data();
                 const div = document.createElement('div');
@@ -397,45 +401,21 @@
 
         async function enviarMensagemChat() {
             const mensagem = document.getElementById('mensagem-chat').value;
-            const alunoId = 'ID_DO_ALUNO'; // Substitua pelo ID do aluno
+            const usuarioId = 'ID_DO_USUARIO'; // Substitua pelo ID do usuário
 
             await db.collection('Chat').add({
-                alunoId,
+                usuarioId,
                 remetente: 'Administrador',
                 texto: mensagem,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
 
             document.getElementById('mensagem-chat').value = '';
-            carregarMensagens(alunoId);
+            carregarMensagens(usuarioId);
         }
 
         function fecharChat() {
             mostrarTela('painel-admin');
-        }
-
-        // Função para carregar pacientes
-        async function carregarPacientes() {
-            const lista = document.getElementById('lista-pacientes');
-            lista.innerHTML = '';
-
-            const snapshot = await db.collection('Pacientes').get();
-            snapshot.forEach(doc => {
-                const paciente = doc.data();
-                const div = document.createElement('div');
-                div.innerHTML = `
-                    <p><strong>${paciente.nomeCompleto}</strong> (${paciente.usuario})</p>
-                    <button onclick="verPaciente('${doc.id}')">Ver</button>
-                    <button onclick="definirModulos('${doc.id}')">Definir Módulos</button>
-                `;
-                lista.appendChild(div);
-            });
-        }
-
-        async function definirModulos(pacienteId) {
-            const modulos = prompt('Digite os módulos separados por vírgula:');
-            await db.collection('Pacientes').doc(pacienteId).update({ modulos });
-            mostrarModal('Sucesso', 'Módulos definidos com sucesso!', 'sucesso');
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -559,8 +539,7 @@
             document.getElementById('formLoginPaciente').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const usuario = e.target.elements[0].value;
-                const dataNasc = e.target.elements[1].value;
-                const senha = formatarDataBrasileira(dataNasc);
+                const senha = e.target.elements[1].value;
 
                 try {
                     const snapshot = await db.collection('Pacientes')
@@ -597,8 +576,11 @@
                 e.target.reset();
             });
 
-            // Carregar alunos ao abrir a tela
-            document.getElementById('painel-admin').addEventListener('click', carregarAlunos);
+            // Carregar usuários online e pendentes ao abrir a tela
+            document.getElementById('painel-admin').addEventListener('click', () => {
+                carregarUsuariosOnline();
+                carregarUsuariosPendentes();
+            });
 
             document.getElementById('overlay').addEventListener('click', fecharModal);
         });
