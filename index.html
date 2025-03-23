@@ -155,10 +155,20 @@
             margin-right: 8px;
         }
 
+        .offline-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #ff0000;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
         .abas {
             display: flex;
             gap: 1rem;
             margin-bottom: 1rem;
+            flex-wrap: wrap;
         }
 
         .aba {
@@ -173,11 +183,17 @@
             margin-bottom: 1rem;
         }
 
-        .user-details {
+        .user-item {
             background: #2c3e50;
             padding: 10px;
             border-radius: 5px;
-            margin-top: 10px;
+            margin-bottom: 10px;
+        }
+
+        .edit-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
     </style>
 </head>
@@ -303,25 +319,33 @@
         <h1>Painel do Administrador <span class="badge-admin">Admin</span></h1>
         <div class="abas">
             <button onclick="mostrarAba('usuarios')">Usuários</button>
-            <button onclick="mostrarAba('pendentes')">Usuários Pendentes</button>
-            <button onclick="mostrarAba('negados')">Usuários Negados</button>
+            <button onclick="mostrarAba('pendentes')">Pendentes</button>
+            <button onclick="mostrarAba('negados')">Negados</button>
             <button onclick="mostrarAba('chat')">Chat</button>
         </div>
+
+        <!-- Aba Usuários -->
         <div id="aba-usuarios" class="aba visible">
             <h2>Usuários</h2>
             <input type="text" class="search-bar" id="search-usuarios" placeholder="Pesquisar usuários...">
             <div id="lista-usuarios"></div>
         </div>
+
+        <!-- Aba Pendentes -->
         <div id="aba-pendentes" class="aba hidden">
             <h2>Usuários Pendentes</h2>
             <input type="text" class="search-bar" id="search-pendentes" placeholder="Pesquisar pendentes...">
             <div id="lista-usuarios-pendentes"></div>
         </div>
+
+        <!-- Aba Negados -->
         <div id="aba-negados" class="aba hidden">
             <h2>Usuários Negados</h2>
             <input type="text" class="search-bar" id="search-negados" placeholder="Pesquisar negados...">
             <div id="lista-usuarios-negados"></div>
         </div>
+
+        <!-- Aba Chat -->
         <div id="aba-chat" class="aba hidden">
             <h2>Chat</h2>
             <select id="chat-usuario" onchange="carregarMensagens(this.value)">
@@ -331,6 +355,7 @@
             <input type="text" id="mensagem-chat" placeholder="Digite sua mensagem...">
             <button onclick="enviarMensagemChat()">Enviar</button>
         </div>
+
         <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
     </div>
 
@@ -369,7 +394,12 @@
             const modal = document.getElementById('modal');
             modal.className = `modal ${status}`;
             document.getElementById('modal-title').textContent = titulo;
-            document.getElementById('modal-content').textContent = conteudo;
+            if (typeof conteudo === 'string') {
+                document.getElementById('modal-content').textContent = conteudo;
+            } else {
+                document.getElementById('modal-content').innerHTML = '';
+                document.getElementById('modal-content').appendChild(conteudo);
+            }
             document.getElementById('modal').style.display = 'block';
             document.getElementById('overlay').style.display = 'block';
         }
@@ -379,10 +409,21 @@
             document.getElementById('overlay').style.display = 'none';
         }
 
-        // Função para mostrar abas
         function mostrarAba(aba) {
             document.querySelectorAll('.aba').forEach(aba => aba.classList.add('hidden'));
             document.getElementById(`aba-${aba}`).classList.remove('hidden');
+        }
+
+        // Função para verificar status online
+        function atualizarStatusOnline() {
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    db.collection('Alunos').doc(user.uid).update({
+                        online: true,
+                        lastOnline: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            });
         }
 
         // Função para carregar usuários em tempo real
@@ -390,44 +431,36 @@
             const lista = document.getElementById('lista-usuarios');
             const search = document.getElementById('search-usuarios');
 
-            db.collection('Alunos').onSnapshot(async snapshot => {
+            db.collection('Alunos').onSnapshot(snapshot => {
                 lista.innerHTML = '';
-                const alunos = [];
-                const admins = new Set((await db.collection('Administradores').get()).docs.map(doc => doc.id));
-                const onlineUsers = new Set(); // Simulação de usuários online (pode ser ajustado com auth)
+                const usuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                snapshot.forEach(doc => {
-                    const aluno = { id: doc.id, ...doc.data() };
-                    alunos.push(aluno);
-                    if (Math.random() > 0.7) onlineUsers.add(aluno.usuario); // Simulação de online
-                });
+                const filteredUsuarios = usuarios.filter(u => 
+                    u.nomeCompleto.toLowerCase().includes(search.value.toLowerCase()) ||
+                    u.usuario.toLowerCase().includes(search.value.toLowerCase())
+                );
 
-                alunos.sort((a, b) => {
-                    const aIsAdmin = admins.has(a.usuario);
-                    const bIsAdmin = admins.has(b.usuario);
-                    const aIsOnline = onlineUsers.has(a.usuario);
-                    const bIsOnline = onlineUsers.has(b.usuario);
+                filteredUsuarios.sort((a, b) => {
+                    const aIsAdmin = a.admin === 'yes';
+                    const bIsAdmin = b.admin === 'yes';
+                    const aIsOnline = a.online || false;
+                    const bIsOnline = b.online || false;
                     if (aIsAdmin !== bIsAdmin) return bIsAdmin - aIsAdmin;
                     return bIsOnline - aIsOnline;
                 });
 
-                const filteredAlunos = alunos.filter(aluno => 
-                    aluno.nomeCompleto.toLowerCase().includes(search.value.toLowerCase()) ||
-                    aluno.usuario.toLowerCase().includes(search.value.toLowerCase())
-                );
-
-                filteredAlunos.forEach(aluno => {
+                filteredUsuarios.forEach(usuario => {
                     const div = document.createElement('div');
-                    const isAdmin = admins.has(aluno.usuario);
-                    const isOnline = onlineUsers.has(aluno.usuario);
+                    div.className = 'user-item';
+                    const isAdmin = usuario.admin === 'yes';
+                    const isOnline = usuario.online || false;
                     div.innerHTML = `
                         <p>
-                            ${isOnline ? '<span class="online-indicator"></span>' : ''}
-                            <strong>${aluno.nomeCompleto}</strong> (${aluno.usuario})
+                            ${isOnline ? '<span class="online-indicator"></span>' : '<span class="offline-indicator"></span>'}
+                            <strong>${usuario.nomeCompleto}</strong> (${usuario.usuario})
                             ${isAdmin ? '<span class="badge-admin">Admin</span>' : ''}
                         </p>
-                        <button onclick="verDetalhesUsuario('${aluno.id}', 'Alunos')">Ver</button>
-                        <button onclick="editarUsuario('${aluno.id}', 'Alunos')">Editar</button>
+                        <button onclick="editarUsuario('${usuario.id}')">Editar</button>
                     `;
                     lista.appendChild(div);
                 });
@@ -452,6 +485,7 @@
 
                 filteredPendentes.forEach(aluno => {
                     const div = document.createElement('div');
+                    div.className = 'user-item';
                     div.innerHTML = `
                         <p><strong>${aluno.nomeCompleto}</strong> (${aluno.usuario})</p>
                         <button onclick="aprovarUsuario('${aluno.id}')">Aprovar</button>
@@ -469,7 +503,7 @@
             const lista = document.getElementById('lista-usuarios-negados');
             const search = document.getElementById('search-negados');
 
-            db.collection('Alunos').where('status', '==', 'negado').onSnapshot(async snapshot => {
+            db.collection('Alunos').where('status', '==', 'negado').onSnapshot(snapshot => {
                 lista.innerHTML = '';
                 const negados = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -480,6 +514,7 @@
 
                 filteredNegados.forEach(aluno => {
                     const div = document.createElement('div');
+                    div.className = 'user-item';
                     div.innerHTML = `
                         <p>
                             <strong>${aluno.nomeCompleto}</strong> (${aluno.usuario})<br>
@@ -509,36 +544,55 @@
             if (motivo) {
                 await db.collection('Alunos').doc(id).update({
                     status: 'negado',
-                    negadoPor: 'admin', // Substituir por ID real do admin logado
+                    negadoPor: auth.currentUser ? auth.currentUser.uid : 'admin',
                     motivoNegacao: motivo
                 });
             }
         }
 
-        // Função para ver detalhes do usuário
-        async function verDetalhesUsuario(id, collection) {
-            const doc = await db.collection(collection).doc(id).get();
-            const data = doc.data();
-            mostrarModal('Detalhes do Usuário', 
-                `Nome: ${data.nomeCompleto}\nUsuário: ${data.usuario}\nEmail: ${data.email || 'N/A'}\nWhatsApp: ${data.whatsapp}\n${collection === 'Alunos' ? 'Matrícula: ' + data.matricula : 'Cartão SUS: ' + (data.cartaoSus || 'N/A')}\nData Nascimento: ${data.dataNascimento}`,
-                'sucesso'
-            );
+        // Função para editar usuário com pop-up
+        async function editarUsuario(id) {
+            const doc = await db.collection('Alunos').doc(id).get();
+            const usuario = doc.data();
+
+            const form = document.createElement('form');
+            form.className = 'edit-form';
+            form.innerHTML = `
+                <input type="text" name="nomeCompleto" value="${usuario.nomeCompleto}" placeholder="Nome Completo" required>
+                <input type="text" name="matricula" value="${usuario.matricula}" placeholder="Matrícula" required>
+                <input type="email" name="email" value="${usuario.email}" placeholder="Email" required>
+                <input type="date" name="dataNascimento" value="${usuario.dataNascimento}" required>
+                <input type="text" name="whatsapp" value="${usuario.whatsapp}" placeholder="WhatsApp" required>
+                <select name="admin">
+                    <option value="no" ${usuario.admin !== 'yes' ? 'selected' : ''}>Usuário Comum</option>
+                    <option value="yes" ${usuario.admin === 'yes' ? 'selected' : ''}>Administrador</option>
+                </select>
+                <button type="submit">Salvar</button>
+                <button type="button" onclick="excluirUsuario('${id}')">Excluir</button>
+            `;
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const data = {
+                    nomeCompleto: form.nomeCompleto.value,
+                    matricula: form.matricula.value,
+                    email: form.email.value,
+                    dataNascimento: form.dataNascimento.value,
+                    whatsapp: form.whatsapp.value,
+                    admin: form.admin.value
+                };
+                await db.collection('Alunos').doc(id).update(data);
+                fecharModal();
+            });
+
+            mostrarModal('Editar Usuário', form, 'sucesso');
         }
 
-        // Função para editar usuário
-        async function editarUsuario(id, collection) {
-            const doc = await db.collection(collection).doc(id).get();
-            const data = doc.data();
-            const novoNome = prompt('Novo nome:', data.nomeCompleto);
-            const novoEmail = prompt('Novo email:', data.email);
-            const novoWhatsApp = prompt('Novo WhatsApp:', data.whatsapp);
-
-            if (novoNome && novoEmail && novoWhatsApp) {
-                await db.collection(collection).doc(id).update({
-                    nomeCompleto: novoNome,
-                    email: novoEmail,
-                    whatsapp: novoWhatsApp
-                });
+        // Função para excluir usuário
+        async function excluirUsuario(id) {
+            if (confirm('Deseja realmente excluir este usuário?')) {
+                await db.collection('Alunos').doc(id).delete();
+                fecharModal();
             }
         }
 
@@ -616,6 +670,8 @@
                         usuario: values[1],
                         senha: senha,
                         status: 'pendente',
+                        admin: 'no',
+                        online: false,
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     
@@ -641,6 +697,7 @@
                         carregarUsuariosPendentes();
                         carregarUsuariosNegados();
                         carregarUsuariosChat();
+                        atualizarStatusOnline();
                         return;
                     }
 
@@ -655,7 +712,8 @@
                     }
 
                     const aluno = snapshot.docs[0].data();
-                    
+                    const alunoId = snapshot.docs[0].id;
+
                     if (aluno.status === 'pendente') {
                         mostrarModal('Aviso', 'Seu cadastro está aguardando aprovação', 'pendente');
                         mostrarTela('login-aluno');
@@ -663,13 +721,14 @@
                         mostrarModal('Erro', 'Cadastro não aprovado! Contate o suporte.', 'negado');
                         mostrarTela('login-aluno');
                     } else {
-                        const adminSnapshot = await db.collection('Administradores').doc(matricula).get();
-                        if (adminSnapshot.exists) {
+                        await db.collection('Alunos').doc(alunoId).update({ online: true });
+                        if (aluno.admin === 'yes') {
                             mostrarTela('painel-admin');
                             carregarUsuarios();
                             carregarUsuariosPendentes();
                             carregarUsuariosNegados();
                             carregarUsuariosChat();
+                            atualizarStatusOnline();
                         } else {
                             if (aluno.mensagemAdmin) {
                                 document.getElementById('mensagem-admin').classList.remove('hidden');
@@ -739,6 +798,16 @@
             });
 
             document.getElementById('overlay').addEventListener('click', fecharModal);
+
+            // Atualizar status offline ao fechar a janela
+            window.addEventListener('beforeunload', () => {
+                if (auth.currentUser) {
+                    db.collection('Alunos').doc(auth.currentUser.uid).update({
+                        online: false,
+                        lastOnline: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            });
         });
     </script>
 </body>
