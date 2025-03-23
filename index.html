@@ -321,10 +321,10 @@
     <div id="painel-admin" class="container hidden">
         <h1>Painel do Administrador <span class="badge-admin">Admin</span></h1>
         <div class="abas">
-            <button onclick="mostrarAba('usuarios')">Usuários</button>
-            <button onclick="mostrarAba('pendentes')">Pendentes</button>
-            <button onclick="mostrarAba('negados')">Negados</button>
-            <button onclick="mostrarAba('chat')">Chat</button>
+            <button onclick="mostrarAba('usuarios'); carregarUsuarios();">Usuários</button>
+            <button onclick="mostrarAba('pendentes'); carregarUsuariosPendentes();">Pendentes</button>
+            <button onclick="mostrarAba('negados'); carregarUsuariosNegados();">Negados</button>
+            <button onclick="mostrarAba('chat'); carregarUsuariosChat();">Chat</button>
         </div>
 
         <!-- Aba Usuários -->
@@ -430,12 +430,12 @@
             mostrarTela('tela-inicial');
         }
 
-        // Função para carregar usuários em tempo real
+        // Função para carregar usuários em tempo real (apenas aprovados)
         function carregarUsuarios() {
             const lista = document.getElementById('lista-usuarios');
             const search = document.getElementById('search-usuarios');
 
-            db.collection('Alunos').onSnapshot(snapshot => {
+            db.collection('Alunos').where('status', '==', 'aprovado').onSnapshot(snapshot => {
                 lista.innerHTML = '';
                 const usuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -607,7 +607,7 @@
         // Função para carregar usuários no chat
         function carregarUsuariosChat() {
             const select = document.getElementById('chat-usuario');
-            db.collection('Alunos').onSnapshot(snapshot => {
+            db.collection('Alunos').where('status', '==', 'aprovado').onSnapshot(snapshot => {
                 select.innerHTML = '<option value="">Selecione um usuário</option>';
                 snapshot.forEach(doc => {
                     const aluno = doc.data();
