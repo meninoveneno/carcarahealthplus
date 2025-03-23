@@ -37,15 +37,6 @@
             position: relative;
         }
 
-        .logo {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-        }
-
         h1 {
             text-align: center;
             margin-bottom: 1.5rem;
@@ -123,11 +114,20 @@
             background: rgba(0,0,0,0.5);
             z-index: 999;
         }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .checkbox-container input {
+            width: auto;
+            margin: 0 8px 0 0;
+        }
     </style>
 </head>
 <body>
-    <img src="https://icon-library.com/images/beta-version-icon/beta-version-icon-6.jpg" alt="Logo" class="logo">
-
     <!-- Modal -->
     <div class="overlay" id="overlay"></div>
     <div class="modal" id="modal">
@@ -138,7 +138,7 @@
 
     <!-- Telas -->
     <div id="tela-inicial" class="container">
-        <h1>Bem-vindo ao Carcará Health +</h1>
+        <h1>Carcará Health +</h1>
         <div class="btn-group">
             <button onclick="mostrarTela('tela-opcoes-aluno')">Sou Aluno</button>
             <button onclick="mostrarTela('tela-opcoes-paciente')">Sou Paciente</button>
@@ -197,9 +197,10 @@
             <input type="date" required>
             <input type="email" placeholder="Email (opcional)">
             <input type="text" placeholder="Cartão SUS (opcional)">
-            <label style="margin: 10px 0; display: block;">
-                <input type="checkbox" required> Confirmo os termos de uso
-            </label>
+            <div class="checkbox-container">
+                <input type="checkbox" required>
+                <span>Confirmo que li e aceito os termos de uso</span>
+            </div>
             <button type="submit">Cadastrar</button>
             <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-paciente')">Voltar</button>
         </form>
@@ -214,6 +215,16 @@
             <button type="submit">Entrar</button>
             <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-paciente')">Voltar</button>
         </form>
+    </div>
+
+    <!-- Tela de Módulos -->
+    <div id="tela-modulos" class="container hidden">
+        <h1>Módulos</h1>
+        <div class="btn-group">
+            <button onclick="mostrarTela('modulo1')">Módulo 1</button>
+            <button onclick="mostrarTela('modulo2')">Módulo 2</button>
+            <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
+        </div>
     </div>
 
     <script>
@@ -233,6 +244,12 @@
             console.log('Firebase inicializado');
         } catch (e) {
             alert('Erro ao carregar Firebase: ' + e.message);
+        }
+
+        // Função para formatar data no padrão brasileiro (DDMMYYYY)
+        function formatarDataBrasileira(data) {
+            const partes = data.split('-');
+            return partes[2] + partes[1] + partes[0]; // DDMMYYYY
         }
 
         function mostrarTela(idTela) {
@@ -285,56 +302,48 @@
             document.getElementById('formCadastroPaciente').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const elements = e.target.elements;
-                const nomeCompleto = elements[0].value;
-                const dataNascimento = elements[1].value;
                 
-                // Gera usuário: nome+sobrenome+dataNascimento (DDMMYYYY)
-                const nomeFormatado = nomeCompleto.replace(/\s+/g, '').toLowerCase();
-                const dataFormatada = dataNascimento.split('-').reverse().join('');
-                const usuario = nomeFormatado + dataFormatada;
+                // Geração do usuário
+                const nome = elements[0].value.toLowerCase().replace(/\s+/g, '');
+                const dataNasc = elements[1].value;
+                
+                // Formata a senha no padrão brasileiro (DDMMYYYY)
+                const senha = formatarDataBrasileira(dataNasc);
+                
+                // Formata a data para DDMMYYYY
+                const dataFormatada = dataNasc.split('-').reverse().join('');
+                const usuario = nome + dataFormatada;
 
                 try {
                     await db.collection('Pacientes').add({
-                        nomeCompleto,
-                        dataNascimento,
-                        email: elements[2].value,
-                        cartaoSus: elements[3].value,
+                        nomeCompleto: elements[0].value,
+                        dataNascimento: dataNasc,
+                        email: elements[2].value || '',
+                        cartaoSus: elements[3].value || '',
                         usuario,
-                        senha: dataNascimento,
+                        senha: senha, // Senha no formato DDMMYYYY
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     
-                    mostrarModal(`Cadastro realizado!\nUsuário: ${usuario}\nSenha: ${dataNascimento}`);
+                    mostrarModal(`Cadastro realizado!\nUsuário: ${usuario}\nSenha: ${senha}`);
                     e.target.reset();
+                    mostrarTela('tela-modulos'); // Redireciona para tela de módulos
                 } catch (error) {
                     console.error('Erro no cadastro:', error);
                 }
             });
 
-            // Logins
-            document.getElementById('formLoginAluno').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const [matricula, senha] = Array.from(e.target.elements).map(el => el.value);
-
-                const snapshot = await db.collection('Alunos')
-                    .where('usuario', '==', matricula)
-                    .where('senha', '==', senha)
-                    .get();
-
-                if (snapshot.empty || snapshot.docs[0].data().approved !== 'Yes') {
-                    alert('Credenciais inválidas ou conta não aprovada');
-                    return;
-                }
-                mostrarModal('Login bem-sucedido!');
-            });
-
+            // Login Paciente
             document.getElementById('formLoginPaciente').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const [usuario, senha] = Array.from(e.target.elements).map(el => el.value);
 
+                // Formata a senha para o padrão brasileiro
+                const senhaFormatada = formatarDataBrasileira(senha);
+
                 const snapshot = await db.collection('Pacientes')
                     .where('usuario', '==', usuario)
-                    .where('senha', '==', senha)
+                    .where('senha', '==', senhaFormatada)
                     .get();
 
                 if (snapshot.empty) {
@@ -342,6 +351,7 @@
                     return;
                 }
                 mostrarModal('Login bem-sucedido!');
+                mostrarTela('tela-modulos');
             });
 
             document.getElementById('overlay').addEventListener('click', fecharModal);
