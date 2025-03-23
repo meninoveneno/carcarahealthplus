@@ -71,7 +71,7 @@
             cursor: not-allowed;
         }
 
-        input, select, textarea {
+        input, select {
             width: 100%;
             padding: 10px;
             margin: 8px 0;
@@ -146,17 +146,23 @@
             margin-left: 8px;
         }
 
-        .status-indicator {
+        .online-indicator {
             display: inline-block;
             width: 10px;
             height: 10px;
+            background: #00ff00;
             border-radius: 50%;
             margin-right: 8px;
         }
 
-        .approved { background: #00ff00; }
-        .pending { background: #ffeb3b; }
-        .denied { background: #ff0000; }
+        .offline-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #ff0000;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
 
         .abas {
             display: flex;
@@ -191,6 +197,15 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
+        }
+
+        .chat-messages {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+            padding: 10px;
+            background: #1a2a4a;
+            border-radius: 5px;
         }
     </style>
 </head>
@@ -316,6 +331,8 @@
         <h1>Painel do Administrador <span class="badge-admin">Admin</span></h1>
         <div class="abas">
             <button onclick="mostrarAba('usuarios'); carregarUsuarios();">Usuários</button>
+            <button onclick="mostrarAba('pendentes'); carregarUsuariosPendentes();">Pendentes</button>
+            <button onclick="mostrarAba('negados'); carregarUsuariosNegados();">Negados</button>
             <button onclick="mostrarAba('chat'); carregarUsuariosChat();">Chat</button>
         </div>
 
@@ -326,13 +343,27 @@
             <div id="lista-usuarios"></div>
         </div>
 
+        <!-- Aba Pendentes -->
+        <div id="aba-pendentes" class="aba hidden">
+            <h2>Usuários Pendentes</h2>
+            <input type="text" class="search-bar" id="search-pendentes" placeholder="Pesquisar pendentes...">
+            <div id="lista-usuarios-pendentes"></div>
+        </div>
+
+        <!-- Aba Negados -->
+        <div id="aba-negados" class="aba hidden">
+            <h2>Usuários Negados</h2>
+            <input type="text" class="search-bar" id="search-negados" placeholder="Pesquisar negados...">
+            <div id="lista-usuarios-negados"></div>
+        </div>
+
         <!-- Aba Chat -->
         <div id="aba-chat" class="aba hidden">
             <h2>Chat</h2>
             <select id="chat-usuario" onchange="carregarMensagens(this.value)">
                 <option value="">Selecione um usuário</option>
             </select>
-            <div id="mensagens-chat"></div>
+            <div class="chat-messages" id="mensagens-chat"></div>
             <input type="text" id="mensagem-chat" placeholder="Digite sua mensagem...">
             <button onclick="enviarMensagemChat()">Enviar</button>
         </div>
@@ -362,9 +393,10 @@
             alert('Erro ao carregar Firebase: ' + e.message);
         }
 
+        // Função para formatar data no padrão brasileiro (DDMMYYYY)
         function formatarDataBrasileira(data) {
             const partes = data.split('-');
-            return partes[2] + partes[1] + partes[0];
+            return partes[2] + partes[1] + partes[0]; // DDMMYYYY
         }
 
         function mostrarTela(idTela) {
@@ -396,15 +428,23 @@
             document.getElementById(`aba-${aba}`).classList.remove('hidden');
         }
 
+        // Função para sair da área do aluno e definir offline
         function sairAreaAluno() {
+            if (currentUserId) {
+                db.collection('Alunos').doc(currentUserId).update({
+                    online: false,
+                    lastOnline: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
             mostrarTela('tela-inicial');
         }
 
+        // Função para carregar usuários aprovados em tempo real
         function carregarUsuarios() {
             const lista = document.getElementById('lista-usuarios');
             const search = document.getElementById('search-usuarios');
 
-            db.collection('Alunos').onSnapshot(snapshot => {
+            db.collection('Alunos').where('status', '==', 'aprovado').onSnapshot(snapshot => {
                 lista.innerHTML = '';
                 const usuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -416,23 +456,20 @@
                 filteredUsuarios.sort((a, b) => {
                     const aIsAdmin = a.admin === 'yes';
                     const bIsAdmin = b.admin === 'yes';
+                    const aIsOnline = a.online || false;
+                    const bIsOnline = b.online || false;
                     if (aIsAdmin !== bIsAdmin) return bIsAdmin - aIsAdmin;
-                    return a.nomeCompleto.localeCompare(b.nomeCompleto);
+                    return bIsOnline - aIsOnline;
                 });
 
                 filteredUsuarios.forEach(usuario => {
                     const div = document.createElement('div');
                     div.className = 'user-item';
                     const isAdmin = usuario.admin === 'yes';
-                    let statusClass;
-                    switch (usuario.status) {
-                        case 'aprovado': statusClass = 'approved'; break;
-                        case 'pendente': statusClass = 'pending'; break;
-                        case 'negado': statusClass = 'denied'; break;
-                    }
+                    const isOnline = usuario.online || false;
                     div.innerHTML = `
                         <div>
-                            <span class="status-indicator ${statusClass}"></span>
+                            ${isOnline ? '<span class="online-indicator"></span>' : '<span class="offline-indicator"></span>'}
                             <strong>${usuario.nomeCompleto}</strong> (${usuario.usuario})
                             ${isAdmin ? '<span class="badge-admin">Admin</span>' : ''}
                         </div>
@@ -445,6 +482,92 @@
             search.addEventListener('input', () => carregarUsuarios());
         }
 
+        // Função para carregar usuários pendentes em tempo real
+        function carregarUsuariosPendentes() {
+            const lista = document.getElementById('lista-usuarios-pendentes');
+            const search = document.getElementById('search-pendentes');
+
+            db.collection('Alunos').where('status', '==', 'pendente').onSnapshot(snapshot => {
+                lista.innerHTML = '';
+                const pendentes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                const filteredPendentes = pendentes.filter(p => 
+                    p.nomeCompleto.toLowerCase().includes(search.value.toLowerCase()) ||
+                    p.usuario.toLowerCase().includes(search.value.toLowerCase())
+                );
+
+                filteredPendentes.forEach(aluno => {
+                    const div = document.createElement('div');
+                    div.className = 'user-item';
+                    div.innerHTML = `
+                        <div>
+                            <strong>${aluno.nomeCompleto}</strong> (${aluno.usuario})
+                        </div>
+                        <div>
+                            <button onclick="aprovarUsuario('${aluno.id}')">Aprovar</button>
+                            <button onclick="negarUsuario('${aluno.id}')">Negar</button>
+                        </div>
+                    `;
+                    lista.appendChild(div);
+                });
+            });
+
+            search.addEventListener('input', () => carregarUsuariosPendentes());
+        }
+
+        // Função para carregar usuários negados em tempo real
+        function carregarUsuariosNegados() {
+            const lista = document.getElementById('lista-usuarios-negados');
+            const search = document.getElementById('search-negados');
+
+            db.collection('Alunos').where('status', '==', 'negado').onSnapshot(snapshot => {
+                lista.innerHTML = '';
+                const negados = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                const filteredNegados = negados.filter(n => 
+                    n.nomeCompleto.toLowerCase().includes(search.value.toLowerCase()) ||
+                    n.usuario.toLowerCase().includes(search.value.toLowerCase())
+                );
+
+                filteredNegados.forEach(aluno => {
+                    const div = document.createElement('div');
+                    div.className = 'user-item';
+                    div.innerHTML = `
+                        <div>
+                            <strong>${aluno.nomeCompleto}</strong> (${aluno.usuario})<br>
+                            Negado por: ${aluno.negadoPor || 'Desconhecido'} - Motivo: ${aluno.motivoNegacao || 'Não especificado'}
+                        </div>
+                        <button onclick="aprovarUsuario('${aluno.id}')">Aprovar</button>
+                    `;
+                    lista.appendChild(div);
+                });
+            });
+
+            search.addEventListener('input', () => carregarUsuariosNegados());
+        }
+
+        // Função para aprovar usuário
+        async function aprovarUsuario(id) {
+            await db.collection('Alunos').doc(id).update({
+                status: 'aprovado',
+                negadoPor: firebase.firestore.FieldValue.delete(),
+                motivoNegacao: firebase.firestore.FieldValue.delete()
+            });
+        }
+
+        // Função para negar usuário
+        async function negarUsuario(id) {
+            const motivo = prompt('Digite o motivo da negação:');
+            if (motivo) {
+                await db.collection('Alunos').doc(id).update({
+                    status: 'negado',
+                    negadoPor: auth.currentUser ? auth.currentUser.uid : 'admin',
+                    motivoNegacao: motivo
+                });
+            }
+        }
+
+        // Função para editar usuário com pop-up
         async function editarUsuario(id) {
             const doc = await db.collection('Alunos').doc(id).get();
             const usuario = doc.data();
@@ -461,12 +584,6 @@
                     <option value="no" ${usuario.admin !== 'yes' ? 'selected' : ''}>Usuário Comum</option>
                     <option value="yes" ${usuario.admin === 'yes' ? 'selected' : ''}>Administrador</option>
                 </select>
-                <select name="status">
-                    <option value="aprovado" ${usuario.status === 'aprovado' ? 'selected' : ''}>Aprovado</option>
-                    <option value="pendente" ${usuario.status === 'pendente' ? 'selected' : ''}>Pendente</option>
-                    <option value="negado" ${usuario.status === 'negado' ? 'selected' : ''}>Negado</option>
-                </select>
-                <textarea name="motivoNegacao" placeholder="Motivo da negação (obrigatório se negado)" ${usuario.status === 'negado' ? `value="${usuario.motivoNegacao || ''}"` : ''}></textarea>
                 <button type="submit">Salvar</button>
                 <button type="button" onclick="excluirUsuario('${id}')">Excluir</button>
             `;
@@ -479,22 +596,8 @@
                     email: form.email.value,
                     dataNascimento: form.dataNascimento.value,
                     whatsapp: form.whatsapp.value,
-                    admin: form.admin.value,
-                    status: form.status.value
+                    admin: form.admin.value
                 };
-
-                if (form.status.value === 'negado') {
-                    if (!form.motivoNegacao.value) {
-                        alert('O motivo da negação é obrigatório ao negar um usuário.');
-                        return;
-                    }
-                    data.motivoNegacao = form.motivoNegacao.value;
-                    data.negadoPor = auth.currentUser ? auth.currentUser.uid : 'admin';
-                } else {
-                    data.motivoNegacao = firebase.firestore.FieldValue.delete();
-                    data.negadoPor = firebase.firestore.FieldValue.delete();
-                }
-
                 await db.collection('Alunos').doc(id).update(data);
                 fecharModal();
             });
@@ -502,6 +605,7 @@
             mostrarModal('Editar Usuário', form, 'sucesso');
         }
 
+        // Função para excluir usuário
         async function excluirUsuario(id) {
             if (confirm('Deseja realmente excluir este usuário?')) {
                 await db.collection('Alunos').doc(id).delete();
@@ -509,6 +613,7 @@
             }
         }
 
+        // Função para carregar usuários no chat
         function carregarUsuariosChat() {
             const select = document.getElementById('chat-usuario');
             db.collection('Alunos').where('status', '==', 'aprovado').onSnapshot(snapshot => {
@@ -523,12 +628,17 @@
             });
         }
 
+        // Função para carregar mensagens do chat em tempo real
         function carregarMensagens(usuarioId) {
-            if (!usuarioId) return;
+            if (!usuarioId) {
+                document.getElementById('mensagens-chat').innerHTML = '';
+                return;
+            }
             const mensagens = document.getElementById('mensagens-chat');
             mensagens.innerHTML = '';
 
-            db.collection('Chat').where('usuarioId', '==', usuarioId)
+            db.collection('Chat')
+                .where('usuarioId', '==', usuarioId)
                 .orderBy('timestamp')
                 .onSnapshot(snapshot => {
                     mensagens.innerHTML = '';
@@ -538,26 +648,32 @@
                         div.textContent = `${mensagem.remetente}: ${mensagem.texto}`;
                         mensagens.appendChild(div);
                     });
+                    mensagens.scrollTop = mensagens.scrollHeight; // Rolagem automática para a última mensagem
                 });
         }
 
+        // Função para enviar mensagem no chat
         async function enviarMensagemChat() {
-            const mensagem = document.getElementById('mensagem-chat').value;
+            const mensagem = document.getElementById('mensagem-chat').value.trim();
             const usuarioId = document.getElementById('chat-usuario').value;
 
             if (!usuarioId || !mensagem) return;
 
-            await db.collection('Chat').add({
-                usuarioId,
-                remetente: 'Administrador',
-                texto: mensagem,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-            document.getElementById('mensagem-chat').value = '';
+            try {
+                await db.collection('Chat').add({
+                    usuarioId,
+                    remetente: 'Administrador',
+                    texto: mensagem,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                document.getElementById('mensagem-chat').value = '';
+            } catch (error) {
+                console.error('Erro ao enviar mensagem:', error);
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
+            // Cadastro Aluno
             const formAluno = document.getElementById('formCadastroAluno');
 
             formAluno.addEventListener('submit', async (e) => {
@@ -580,6 +696,7 @@
                         senha: senha,
                         status: 'pendente',
                         admin: 'no',
+                        online: false,
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     
@@ -591,6 +708,7 @@
                 }
             });
 
+            // Login Aluno
             document.getElementById('formLoginAluno').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const matricula = e.target.elements[0].value;
@@ -600,8 +718,6 @@
                     if (matricula === 'admin' && senha === 'admin') {
                         mostrarModal('Sucesso', 'Login como administrador realizado com sucesso!', 'sucesso');
                         mostrarTela('painel-admin');
-                        carregarUsuarios();
-                        carregarUsuariosChat();
                         return;
                     }
 
@@ -626,10 +742,9 @@
                         mostrarTela('login-aluno');
                     } else {
                         currentUserId = alunoId;
+                        await db.collection('Alunos').doc(alunoId).update({ online: true });
                         if (aluno.admin === 'yes') {
                             mostrarTela('painel-admin');
-                            carregarUsuarios();
-                            carregarUsuariosChat();
                         } else {
                             if (aluno.mensagemAdmin) {
                                 document.getElementById('mensagem-admin').classList.remove('hidden');
@@ -643,6 +758,7 @@
                 }
             });
 
+            // Cadastro Paciente
             document.getElementById('formCadastroPaciente').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const elements = e.target.elements;
@@ -673,6 +789,7 @@
                 }
             });
 
+            // Login Paciente
             document.getElementById('formLoginPaciente').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const usuario = e.target.elements[0].value;
@@ -697,6 +814,16 @@
             });
 
             document.getElementById('overlay').addEventListener('click', fecharModal);
+
+            // Atualizar status offline ao fechar a janela
+            window.addEventListener('beforeunload', () => {
+                if (currentUserId) {
+                    db.collection('Alunos').doc(currentUserId).update({
+                        online: false,
+                        lastOnline: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                }
+            });
         });
     </script>
 </body>
