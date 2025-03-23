@@ -105,6 +105,16 @@
             color: white;
         }
 
+        .modal.pendente {
+            background: #ffeb3b;
+            color: black;
+        }
+
+        .modal.negado {
+            background: #f44336;
+            color: white;
+        }
+
         .overlay {
             display: none;
             position: fixed;
@@ -173,7 +183,7 @@
             <input type="text" placeholder="Matrícula" required>
             <input type="email" placeholder="Email" required>
             <input type="date" required>
-            <input type="text" placeholder="WhatsApp" required> <!-- Novo campo WhatsApp -->
+            <input type="text" placeholder="WhatsApp" required>
             <button type="submit">Cadastrar</button>
             <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-aluno')">Voltar</button>
         </form>
@@ -221,7 +231,7 @@
             <input type="date" required>
             <input type="email" placeholder="Email (opcional)">
             <input type="text" placeholder="Cartão SUS (opcional)">
-            <input type="text" placeholder="WhatsApp" required> <!-- Novo campo WhatsApp -->
+            <input type="text" placeholder="WhatsApp" required>
             <div class="checkbox-container">
                 <input type="checkbox" required>
                 <span>Confirmo que li e aceito os termos de uso</span>
@@ -255,40 +265,18 @@
     <!-- Painel do Administrador -->
     <div id="painel-admin" class="container hidden">
         <h1>Painel do Administrador <span class="badge-admin">Admin</span></h1>
-        <div class="btn-group">
-            <button onclick="mostrarTela('aprovar-alunos')">Aprovar Alunos</button>
-            <button onclick="mostrarTela('enviar-mensagem')">Enviar Mensagem</button>
-            <button onclick="mostrarTela('definir-admin')">Definir Administrador</button>
-            <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
-        </div>
+        <input type="text" id="pesquisa-aluno" placeholder="Pesquisar aluno..." oninput="filtrarAlunos()">
+        <div id="lista-alunos"></div>
+        <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
     </div>
 
-    <!-- Aprovar Alunos -->
-    <div id="aprovar-alunos" class="container hidden">
-        <h1>Alunos Pendentes</h1>
-        <div id="lista-alunos-pendentes"></div>
-        <button class="back-btn" onclick="mostrarTela('painel-admin')">Voltar</button>
-    </div>
-
-    <!-- Enviar Mensagem -->
-    <div id="enviar-mensagem" class="container hidden">
-        <h1>Enviar Mensagem</h1>
-        <form id="formEnviarMensagem">
-            <input type="text" id="aluno-mensagem" placeholder="Matrícula do Aluno" required>
-            <textarea id="texto-mensagem" placeholder="Mensagem" required></textarea>
-            <button type="submit">Enviar</button>
-            <button type="button" class="back-btn" onclick="mostrarTela('painel-admin')">Voltar</button>
-        </form>
-    </div>
-
-    <!-- Definir Administrador -->
-    <div id="definir-admin" class="container hidden">
-        <h1>Definir Administrador</h1>
-        <form id="formDefinirAdmin">
-            <input type="text" id="aluno-admin" placeholder="Matrícula do Aluno" required>
-            <button type="submit">Definir como Admin</button>
-            <button type="button" class="back-btn" onclick="mostrarTela('painel-admin')">Voltar</button>
-        </form>
+    <!-- Chat -->
+    <div id="chat" class="container hidden">
+        <h1>Chat com Administrador</h1>
+        <div id="mensagens-chat"></div>
+        <input type="text" id="mensagem-chat" placeholder="Digite sua mensagem...">
+        <button onclick="enviarMensagemChat()">Enviar</button>
+        <button class="back-btn" onclick="fecharChat()">Fechar</button>
     </div>
 
     <script>
@@ -322,7 +310,9 @@
             document.getElementById(idTela).classList.remove('hidden');
         }
 
-        function mostrarModal(titulo, conteudo) {
+        function mostrarModal(titulo, conteudo, status) {
+            const modal = document.getElementById('modal');
+            modal.className = `modal ${status}`;
             document.getElementById('modal-title').textContent = titulo;
             document.getElementById('modal-content').textContent = conteudo;
             document.getElementById('modal').style.display = 'block';
@@ -334,60 +324,118 @@
             document.getElementById('overlay').style.display = 'none';
         }
 
-        // Função para carregar alunos pendentes
-        async function carregarAlunosPendentes() {
-            const lista = document.getElementById('lista-alunos-pendentes');
+        // Função para carregar alunos
+        async function carregarAlunos() {
+            const lista = document.getElementById('lista-alunos');
             lista.innerHTML = '';
 
-            const snapshot = await db.collection('Alunos').where('status', '==', 'pendente').get();
+            const snapshot = await db.collection('Alunos').get();
+            const alunos = [];
+
             snapshot.forEach(doc => {
                 const aluno = doc.data();
+                aluno.id = doc.id;
+                alunos.push(aluno);
+            });
+
+            // Ordena alunos: administradores primeiro
+            const adminSnapshot = await db.collection('Administradores').get();
+            const admins = adminSnapshot.docs.map(doc => doc.id);
+
+            alunos.sort((a, b) => {
+                const aIsAdmin = admins.includes(a.usuario);
+                const bIsAdmin = admins.includes(b.usuario);
+                return bIsAdmin - aIsAdmin;
+            });
+
+            alunos.forEach(aluno => {
                 const div = document.createElement('div');
                 div.innerHTML = `
-                    <p><strong>${aluno.nomeCompleto}</strong> (${aluno.matricula})</p>
-                    <button onclick="aprovarAluno('${doc.id}')">Aprovar</button>
-                    <button onclick="negarAluno('${doc.id}')">Negar</button>
+                    <p><strong>${aluno.nomeCompleto}</strong> (${aluno.usuario}) 
+                    ${admins.includes(aluno.usuario) ? '<span class="badge-admin">Admin</span>' : ''}</p>
+                    <button onclick="verAluno('${aluno.id}')">Ver</button>
+                    <button onclick="editarAluno('${aluno.id}')">Editar</button>
+                    <button onclick="bloquearAluno('${aluno.id}')">Bloquear</button>
+                    <button onclick="excluirAluno('${aluno.id}')">Excluir</button>
                 `;
                 lista.appendChild(div);
             });
         }
 
-        // Função para aprovar aluno
-        async function aprovarAluno(id) {
-            await db.collection('Alunos').doc(id).update({ status: 'aprovado' });
-            carregarAlunosPendentes();
-            mostrarModal('Sucesso', 'Aluno aprovado com sucesso!');
+        function filtrarAlunos() {
+            const termo = document.getElementById('pesquisa-aluno').value.toLowerCase();
+            const alunos = document.querySelectorAll('#lista-alunos div');
+
+            alunos.forEach(aluno => {
+                const nome = aluno.textContent.toLowerCase();
+                if (nome.includes(termo)) {
+                    aluno.style.display = 'block';
+                } else {
+                    aluno.style.display = 'none';
+                }
+            });
         }
 
-        // Função para negar aluno
-        async function negarAluno(id) {
-            await db.collection('Alunos').doc(id).update({ status: 'negado' });
-            carregarAlunosPendentes();
-            mostrarModal('Sucesso', 'Aluno negado com sucesso!');
+        // Função para abrir chat
+        function abrirChat(alunoId) {
+            mostrarTela('chat');
+            carregarMensagens(alunoId);
         }
 
-        // Função para enviar mensagem para aluno
-        async function enviarMensagemParaAluno(matricula, mensagem) {
-            await db.collection('Alunos').doc(matricula).update({ mensagemAdmin: mensagem });
-            mostrarModal('Sucesso', 'Mensagem enviada com sucesso!');
+        async function carregarMensagens(alunoId) {
+            const mensagens = document.getElementById('mensagens-chat');
+            mensagens.innerHTML = '';
+
+            const snapshot = await db.collection('Chat').where('alunoId', '==', alunoId).get();
+            snapshot.forEach(doc => {
+                const mensagem = doc.data();
+                const div = document.createElement('div');
+                div.textContent = `${mensagem.remetente}: ${mensagem.texto}`;
+                mensagens.appendChild(div);
+            });
         }
 
-        // Função para definir administrador
-        async function definirAdministrador(matricula) {
-            const alunoRef = db.collection('Alunos').doc(matricula);
-            const aluno = await alunoRef.get();
+        async function enviarMensagemChat() {
+            const mensagem = document.getElementById('mensagem-chat').value;
+            const alunoId = 'ID_DO_ALUNO'; // Substitua pelo ID do aluno
 
-            if (!aluno.exists) {
-                mostrarModal('Erro', 'Aluno não encontrado!');
-                return;
-            }
-
-            await db.collection('Administradores').doc(matricula).set({
-                nome: aluno.data().nomeCompleto,
-                matricula: matricula
+            await db.collection('Chat').add({
+                alunoId,
+                remetente: 'Administrador',
+                texto: mensagem,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
 
-            mostrarModal('Sucesso', 'Administrador definido com sucesso!');
+            document.getElementById('mensagem-chat').value = '';
+            carregarMensagens(alunoId);
+        }
+
+        function fecharChat() {
+            mostrarTela('painel-admin');
+        }
+
+        // Função para carregar pacientes
+        async function carregarPacientes() {
+            const lista = document.getElementById('lista-pacientes');
+            lista.innerHTML = '';
+
+            const snapshot = await db.collection('Pacientes').get();
+            snapshot.forEach(doc => {
+                const paciente = doc.data();
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <p><strong>${paciente.nomeCompleto}</strong> (${paciente.usuario})</p>
+                    <button onclick="verPaciente('${doc.id}')">Ver</button>
+                    <button onclick="definirModulos('${doc.id}')">Definir Módulos</button>
+                `;
+                lista.appendChild(div);
+            });
+        }
+
+        async function definirModulos(pacienteId) {
+            const modulos = prompt('Digite os módulos separados por vírgula:');
+            await db.collection('Pacientes').doc(pacienteId).update({ modulos });
+            mostrarModal('Sucesso', 'Módulos definidos com sucesso!', 'sucesso');
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -409,15 +457,16 @@
                         matricula: values[1],
                         email: values[2],
                         dataNascimento: values[3],
-                        whatsapp: values[4], // Novo campo WhatsApp
+                        whatsapp: values[4],
                         usuario: values[1],
                         senha: senha,
                         status: 'pendente',
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     
-                    mostrarModal('Cadastro Realizado', `Solicitação de registro feita!\nUsuário: ${values[1]}\nSenha: ${senha}`);
+                    mostrarModal('Cadastro Realizado', 'Seu cadastro está pendente de aprovação.', 'pendente');
                     formAluno.reset();
+                    mostrarTela('login-aluno');
                 } catch (error) {
                     console.error('Erro no cadastro:', error);
                 }
@@ -432,7 +481,7 @@
                 try {
                     // Verifica se é o administrador
                     if (matricula === 'admin' && senha === 'admin') {
-                        mostrarModal('Sucesso', 'Login como administrador realizado com sucesso!');
+                        mostrarModal('Sucesso', 'Login como administrador realizado com sucesso!', 'sucesso');
                         mostrarTela('painel-admin');
                         return;
                     }
@@ -444,17 +493,17 @@
                         .get();
 
                     if (snapshot.empty) {
-                        mostrarModal('Erro', 'Credenciais inválidas!');
+                        mostrarModal('Erro', 'Credenciais inválidas!', 'negado');
                         return;
                     }
 
                     const aluno = snapshot.docs[0].data();
                     
                     if (aluno.status === 'pendente') {
-                        mostrarModal('Aviso', 'Seu cadastro está aguardando aprovação');
+                        mostrarModal('Aviso', 'Seu cadastro está aguardando aprovação', 'pendente');
                         mostrarTela('login-aluno');
                     } else if (aluno.status === 'negado') {
-                        mostrarModal('Erro', 'Cadastro não aprovado! Contate o suporte.');
+                        mostrarModal('Erro', 'Cadastro não aprovado! Contate o suporte.', 'negado');
                         mostrarTela('login-aluno');
                     } else {
                         // Verifica se o aluno é administrador
@@ -492,13 +541,13 @@
                         dataNascimento: dataNasc,
                         email: elements[2].value || '',
                         cartaoSus: elements[3].value || '',
-                        whatsapp: elements[4].value, // Novo campo WhatsApp
+                        whatsapp: elements[4].value,
                         usuario,
                         senha: senha,
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     
-                    mostrarModal('Cadastro Realizado', `Cadastro realizado!\nUsuário: ${usuario}\nSenha: ${senha}`);
+                    mostrarModal('Cadastro Realizado', `Cadastro realizado!\nUsuário: ${usuario}\nSenha: ${senha}`, 'sucesso');
                     e.target.reset();
                     mostrarTela('tela-modulos');
                 } catch (error) {
@@ -520,11 +569,11 @@
                         .get();
 
                     if (snapshot.empty) {
-                        mostrarModal('Erro', 'Credenciais inválidas!');
+                        mostrarModal('Erro', 'Credenciais inválidas!', 'negado');
                         return;
                     }
 
-                    mostrarModal('Sucesso', 'Login realizado com sucesso!');
+                    mostrarModal('Sucesso', 'Login realizado com sucesso!', 'sucesso');
                     mostrarTela('tela-modulos');
                 } catch (error) {
                     console.error('Erro no login:', error);
@@ -548,8 +597,8 @@
                 e.target.reset();
             });
 
-            // Carregar alunos pendentes ao abrir a tela
-            document.getElementById('aprovar-alunos').addEventListener('click', carregarAlunosPendentes);
+            // Carregar alunos ao abrir a tela
+            document.getElementById('painel-admin').addEventListener('click', carregarAlunos);
 
             document.getElementById('overlay').addEventListener('click', fecharModal);
         });
