@@ -146,13 +146,18 @@
             margin-left: 8px;
         }
 
-        .admin-container {
+        .abas {
             display: flex;
             gap: 1rem;
+            margin-bottom: 1rem;
         }
 
-        .lista-usuarios {
-            flex: 1;
+        .aba {
+            display: none;
+        }
+
+        .aba.visible {
+            display: block;
         }
     </style>
 </head>
@@ -204,6 +209,7 @@
         <form id="formLoginAluno">
             <input type="text" placeholder="Matrícula" required>
             <input type="text" placeholder="Senha" required>
+            <p>Exemplo: usuário: matrícula, senha: DDMMYYYY</p>
             <button type="submit">Entrar</button>
             <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-aluno')">Voltar</button>
         </form>
@@ -256,6 +262,7 @@
         <form id="formLoginPaciente">
             <input type="text" placeholder="Usuário" required>
             <input type="text" placeholder="Senha" required>
+            <p>Exemplo: usuário: nomeesobrenomexxyyzzzz, senha: DDMMYYYY</p>
             <button type="submit">Entrar</button>
             <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-paciente')">Voltar</button>
         </form>
@@ -274,26 +281,31 @@
     <!-- Painel do Administrador -->
     <div id="painel-admin" class="container hidden">
         <h1>Painel do Administrador <span class="badge-admin">Admin</span></h1>
-        <div class="admin-container">
-            <div class="lista-usuarios">
-                <h2>Usuários Online</h2>
-                <div id="lista-usuarios-online"></div>
-            </div>
-            <div class="lista-usuarios">
-                <h2>Usuários Pendentes</h2>
-                <div id="lista-usuarios-pendentes"></div>
-            </div>
+        <div class="abas">
+            <button onclick="mostrarAba('usuarios')">Usuários</button>
+            <button onclick="mostrarAba('pendentes')">Usuários Pendentes</button>
+            <button onclick="mostrarAba('negados')">Usuários Negados</button>
+            <button onclick="mostrarAba('chat')">Chat</button>
+        </div>
+        <div id="aba-usuarios" class="aba visible">
+            <h2>Usuários</h2>
+            <div id="lista-usuarios"></div>
+        </div>
+        <div id="aba-pendentes" class="aba hidden">
+            <h2>Usuários Pendentes</h2>
+            <div id="lista-usuarios-pendentes"></div>
+        </div>
+        <div id="aba-negados" class="aba hidden">
+            <h2>Usuários Negados</h2>
+            <div id="lista-usuarios-negados"></div>
+        </div>
+        <div id="aba-chat" class="aba hidden">
+            <h2>Chat</h2>
+            <div id="mensagens-chat"></div>
+            <input type="text" id="mensagem-chat" placeholder="Digite sua mensagem...">
+            <button onclick="enviarMensagemChat()">Enviar</button>
         </div>
         <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
-    </div>
-
-    <!-- Chat -->
-    <div id="chat" class="container hidden">
-        <h1>Chat com Administrador</h1>
-        <div id="mensagens-chat"></div>
-        <input type="text" id="mensagem-chat" placeholder="Digite sua mensagem...">
-        <button onclick="enviarMensagemChat()">Enviar</button>
-        <button class="back-btn" onclick="fecharChat()">Fechar</button>
     </div>
 
     <script>
@@ -341,22 +353,45 @@
             document.getElementById('overlay').style.display = 'none';
         }
 
-        // Função para carregar usuários online
-        async function carregarUsuariosOnline() {
-            const lista = document.getElementById('lista-usuarios-online');
+        // Função para mostrar abas
+        function mostrarAba(aba) {
+            document.querySelectorAll('.aba').forEach(aba => aba.classList.add('hidden'));
+            document.getElementById(`aba-${aba}`).classList.remove('hidden');
+        }
+
+        // Função para carregar usuários
+        async function carregarUsuarios() {
+            const lista = document.getElementById('lista-usuarios');
             lista.innerHTML = '';
 
-            const snapshot = await db.collection('UsuariosOnline').get();
+            const snapshot = await db.collection('Alunos').get();
+            const alunos = [];
+
             snapshot.forEach(doc => {
-                const usuario = doc.data();
+                const aluno = doc.data();
+                aluno.id = doc.id;
+                alunos.push(aluno);
+            });
+
+            // Ordena alunos: administradores primeiro
+            const adminSnapshot = await db.collection('Administradores').get();
+            const admins = adminSnapshot.docs.map(doc => doc.id);
+
+            alunos.sort((a, b) => {
+                const aIsAdmin = admins.includes(a.usuario);
+                const bIsAdmin = admins.includes(b.usuario);
+                return bIsAdmin - aIsAdmin;
+            });
+
+            alunos.forEach(aluno => {
                 const div = document.createElement('div');
                 div.innerHTML = `
-                    <p><strong>${usuario.nome}</strong> (${usuario.tipo}) 
-                    ${usuario.tipo === 'admin' ? '<span class="badge-admin">Admin</span>' : ''}</p>
-                    <button onclick="abrirChat('${usuario.id}')">Chat</button>
-                    <button onclick="editarUsuario('${usuario.id}')">Editar</button>
-                    <button onclick="bloquearUsuario('${usuario.id}')">Bloquear</button>
-                    <button onclick="excluirUsuario('${usuario.id}')">Excluir</button>
+                    <p><strong>${aluno.nomeCompleto}</strong> (${aluno.usuario}) 
+                    ${admins.includes(aluno.usuario) ? '<span class="badge-admin">Admin</span>' : ''}</p>
+                    <button onclick="verAluno('${aluno.id}')">Ver</button>
+                    <button onclick="editarAluno('${aluno.id}')">Editar</button>
+                    <button onclick="bloquearAluno('${aluno.id}')">Bloquear</button>
+                    <button onclick="excluirAluno('${aluno.id}')">Excluir</button>
                 `;
                 lista.appendChild(div);
             });
@@ -375,6 +410,23 @@
                     <p><strong>${aluno.nomeCompleto}</strong> (${aluno.usuario})</p>
                     <button onclick="aprovarAluno('${doc.id}')">Aprovar</button>
                     <button onclick="negarAluno('${doc.id}')">Negar</button>
+                `;
+                lista.appendChild(div);
+            });
+        }
+
+        // Função para carregar usuários negados
+        async function carregarUsuariosNegados() {
+            const lista = document.getElementById('lista-usuarios-negados');
+            lista.innerHTML = '';
+
+            const snapshot = await db.collection('Alunos').where('status', '==', 'negado').get();
+            snapshot.forEach(doc => {
+                const aluno = doc.data();
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <p><strong>${aluno.nomeCompleto}</strong> (${aluno.usuario})</p>
+                    <button onclick="aprovarAluno('${doc.id}')">Aprovar</button>
                 `;
                 lista.appendChild(div);
             });
@@ -444,7 +496,7 @@
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     
-                    mostrarModal('Cadastro Realizado', 'Seu cadastro está pendente de aprovação.', 'pendente');
+                    mostrarModal('Cadastro Realizado', `Seu cadastro está pendente de aprovação.\nUsuário: ${values[1]}\nSenha: ${senha}`, 'pendente');
                     formAluno.reset();
                     mostrarTela('login-aluno');
                 } catch (error) {
@@ -576,10 +628,11 @@
                 e.target.reset();
             });
 
-            // Carregar usuários online e pendentes ao abrir a tela
+            // Carregar usuários ao abrir a tela
             document.getElementById('painel-admin').addEventListener('click', () => {
-                carregarUsuariosOnline();
+                carregarUsuarios();
                 carregarUsuariosPendentes();
+                carregarUsuariosNegados();
             });
 
             document.getElementById('overlay').addEventListener('click', fecharModal);
