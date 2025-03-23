@@ -146,6 +146,15 @@
             margin-left: 8px;
         }
 
+        .online-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #00ff00;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
         .abas {
             display: flex;
             gap: 1rem;
@@ -158,6 +167,17 @@
 
         .aba.visible {
             display: block;
+        }
+
+        .search-bar {
+            margin-bottom: 1rem;
+        }
+
+        .user-details {
+            background: #2c3e50;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -289,18 +309,24 @@
         </div>
         <div id="aba-usuarios" class="aba visible">
             <h2>Usuários</h2>
+            <input type="text" class="search-bar" id="search-usuarios" placeholder="Pesquisar usuários...">
             <div id="lista-usuarios"></div>
         </div>
         <div id="aba-pendentes" class="aba hidden">
             <h2>Usuários Pendentes</h2>
+            <input type="text" class="search-bar" id="search-pendentes" placeholder="Pesquisar pendentes...">
             <div id="lista-usuarios-pendentes"></div>
         </div>
         <div id="aba-negados" class="aba hidden">
             <h2>Usuários Negados</h2>
+            <input type="text" class="search-bar" id="search-negados" placeholder="Pesquisar negados...">
             <div id="lista-usuarios-negados"></div>
         </div>
         <div id="aba-chat" class="aba hidden">
             <h2>Chat</h2>
+            <select id="chat-usuario" onchange="carregarMensagens(this.value)">
+                <option value="">Selecione um usuário</option>
+            </select>
             <div id="mensagens-chat"></div>
             <input type="text" id="mensagem-chat" placeholder="Digite sua mensagem...">
             <button onclick="enviarMensagemChat()">Enviar</button>
@@ -359,101 +385,203 @@
             document.getElementById(`aba-${aba}`).classList.remove('hidden');
         }
 
-        // Função para carregar usuários
-        async function carregarUsuarios() {
+        // Função para carregar usuários em tempo real
+        function carregarUsuarios() {
             const lista = document.getElementById('lista-usuarios');
-            lista.innerHTML = '';
+            const search = document.getElementById('search-usuarios');
 
-            const snapshot = await db.collection('Alunos').get();
-            const alunos = [];
+            db.collection('Alunos').onSnapshot(async snapshot => {
+                lista.innerHTML = '';
+                const alunos = [];
+                const admins = new Set((await db.collection('Administradores').get()).docs.map(doc => doc.id));
+                const onlineUsers = new Set(); // Simulação de usuários online (pode ser ajustado com auth)
 
-            snapshot.forEach(doc => {
-                const aluno = doc.data();
-                aluno.id = doc.id;
-                alunos.push(aluno);
+                snapshot.forEach(doc => {
+                    const aluno = { id: doc.id, ...doc.data() };
+                    alunos.push(aluno);
+                    if (Math.random() > 0.7) onlineUsers.add(aluno.usuario); // Simulação de online
+                });
+
+                alunos.sort((a, b) => {
+                    const aIsAdmin = admins.has(a.usuario);
+                    const bIsAdmin = admins.has(b.usuario);
+                    const aIsOnline = onlineUsers.has(a.usuario);
+                    const bIsOnline = onlineUsers.has(b.usuario);
+                    if (aIsAdmin !== bIsAdmin) return bIsAdmin - aIsAdmin;
+                    return bIsOnline - aIsOnline;
+                });
+
+                const filteredAlunos = alunos.filter(aluno => 
+                    aluno.nomeCompleto.toLowerCase().includes(search.value.toLowerCase()) ||
+                    aluno.usuario.toLowerCase().includes(search.value.toLowerCase())
+                );
+
+                filteredAlunos.forEach(aluno => {
+                    const div = document.createElement('div');
+                    const isAdmin = admins.has(aluno.usuario);
+                    const isOnline = onlineUsers.has(aluno.usuario);
+                    div.innerHTML = `
+                        <p>
+                            ${isOnline ? '<span class="online-indicator"></span>' : ''}
+                            <strong>${aluno.nomeCompleto}</strong> (${aluno.usuario})
+                            ${isAdmin ? '<span class="badge-admin">Admin</span>' : ''}
+                        </p>
+                        <button onclick="verDetalhesUsuario('${aluno.id}', 'Alunos')">Ver</button>
+                        <button onclick="editarUsuario('${aluno.id}', 'Alunos')">Editar</button>
+                    `;
+                    lista.appendChild(div);
+                });
             });
 
-            // Ordena alunos: administradores primeiro
-            const adminSnapshot = await db.collection('Administradores').get();
-            const admins = adminSnapshot.docs.map(doc => doc.id);
-
-            alunos.sort((a, b) => {
-                const aIsAdmin = admins.includes(a.usuario);
-                const bIsAdmin = admins.includes(b.usuario);
-                return bIsAdmin - aIsAdmin;
-            });
-
-            alunos.forEach(aluno => {
-                const div = document.createElement('div');
-                div.innerHTML = `
-                    <p><strong>${aluno.nomeCompleto}</strong> (${aluno.usuario}) 
-                    ${admins.includes(aluno.usuario) ? '<span class="badge-admin">Admin</span>' : ''}</p>
-                    <button onclick="verAluno('${aluno.id}')">Ver</button>
-                    <button onclick="editarAluno('${aluno.id}')">Editar</button>
-                    <button onclick="bloquearAluno('${aluno.id}')">Bloquear</button>
-                    <button onclick="excluirAluno('${aluno.id}')">Excluir</button>
-                `;
-                lista.appendChild(div);
-            });
+            search.addEventListener('input', () => carregarUsuarios());
         }
 
-        // Função para carregar usuários pendentes
-        async function carregarUsuariosPendentes() {
+        // Função para carregar usuários pendentes em tempo real
+        function carregarUsuariosPendentes() {
             const lista = document.getElementById('lista-usuarios-pendentes');
-            lista.innerHTML = '';
+            const search = document.getElementById('search-pendentes');
 
-            const snapshot = await db.collection('Alunos').where('status', '==', 'pendente').get();
-            snapshot.forEach(doc => {
-                const aluno = doc.data();
-                const div = document.createElement('div');
-                div.innerHTML = `
-                    <p><strong>${aluno.nomeCompleto}</strong> (${aluno.usuario})</p>
-                    <button onclick="aprovarAluno('${doc.id}')">Aprovar</button>
-                    <button onclick="negarAluno('${doc.id}')">Negar</button>
-                `;
-                lista.appendChild(div);
+            db.collection('Alunos').where('status', '==', 'pendente').onSnapshot(snapshot => {
+                lista.innerHTML = '';
+                const pendentes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                const filteredPendentes = pendentes.filter(p => 
+                    p.nomeCompleto.toLowerCase().includes(search.value.toLowerCase()) ||
+                    p.usuario.toLowerCase().includes(search.value.toLowerCase())
+                );
+
+                filteredPendentes.forEach(aluno => {
+                    const div = document.createElement('div');
+                    div.innerHTML = `
+                        <p><strong>${aluno.nomeCompleto}</strong> (${aluno.usuario})</p>
+                        <button onclick="aprovarUsuario('${aluno.id}')">Aprovar</button>
+                        <button onclick="negarUsuario('${aluno.id}')">Negar</button>
+                    `;
+                    lista.appendChild(div);
+                });
             });
+
+            search.addEventListener('input', () => carregarUsuariosPendentes());
         }
 
-        // Função para carregar usuários negados
-        async function carregarUsuariosNegados() {
+        // Função para carregar usuários negados em tempo real
+        function carregarUsuariosNegados() {
             const lista = document.getElementById('lista-usuarios-negados');
-            lista.innerHTML = '';
+            const search = document.getElementById('search-negados');
 
-            const snapshot = await db.collection('Alunos').where('status', '==', 'negado').get();
-            snapshot.forEach(doc => {
-                const aluno = doc.data();
-                const div = document.createElement('div');
-                div.innerHTML = `
-                    <p><strong>${aluno.nomeCompleto}</strong> (${aluno.usuario})</p>
-                    <button onclick="aprovarAluno('${doc.id}')">Aprovar</button>
-                `;
-                lista.appendChild(div);
+            db.collection('Alunos').where('status', '==', 'negado').onSnapshot(async snapshot => {
+                lista.innerHTML = '';
+                const negados = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                const filteredNegados = negados.filter(n => 
+                    n.nomeCompleto.toLowerCase().includes(search.value.toLowerCase()) ||
+                    n.usuario.toLowerCase().includes(search.value.toLowerCase())
+                );
+
+                filteredNegados.forEach(aluno => {
+                    const div = document.createElement('div');
+                    div.innerHTML = `
+                        <p>
+                            <strong>${aluno.nomeCompleto}</strong> (${aluno.usuario})<br>
+                            Negado por: ${aluno.negadoPor || 'Desconhecido'} - Motivo: ${aluno.motivoNegacao || 'Não especificado'}
+                        </p>
+                        <button onclick="aprovarUsuario('${aluno.id}')">Aprovar</button>
+                    `;
+                    lista.appendChild(div);
+                });
+            });
+
+            search.addEventListener('input', () => carregarUsuariosNegados());
+        }
+
+        // Função para aprovar usuário
+        async function aprovarUsuario(id) {
+            await db.collection('Alunos').doc(id).update({
+                status: 'aprovado',
+                negadoPor: firebase.firestore.FieldValue.delete(),
+                motivoNegacao: firebase.firestore.FieldValue.delete()
             });
         }
 
-        // Função para abrir chat
-        function abrirChat(usuarioId) {
-            mostrarTela('chat');
-            carregarMensagens(usuarioId);
+        // Função para negar usuário
+        async function negarUsuario(id) {
+            const motivo = prompt('Digite o motivo da negação:');
+            if (motivo) {
+                await db.collection('Alunos').doc(id).update({
+                    status: 'negado',
+                    negadoPor: 'admin', // Substituir por ID real do admin logado
+                    motivoNegacao: motivo
+                });
+            }
         }
 
-        async function carregarMensagens(usuarioId) {
+        // Função para ver detalhes do usuário
+        async function verDetalhesUsuario(id, collection) {
+            const doc = await db.collection(collection).doc(id).get();
+            const data = doc.data();
+            mostrarModal('Detalhes do Usuário', 
+                `Nome: ${data.nomeCompleto}\nUsuário: ${data.usuario}\nEmail: ${data.email || 'N/A'}\nWhatsApp: ${data.whatsapp}\n${collection === 'Alunos' ? 'Matrícula: ' + data.matricula : 'Cartão SUS: ' + (data.cartaoSus || 'N/A')}\nData Nascimento: ${data.dataNascimento}`,
+                'sucesso'
+            );
+        }
+
+        // Função para editar usuário
+        async function editarUsuario(id, collection) {
+            const doc = await db.collection(collection).doc(id).get();
+            const data = doc.data();
+            const novoNome = prompt('Novo nome:', data.nomeCompleto);
+            const novoEmail = prompt('Novo email:', data.email);
+            const novoWhatsApp = prompt('Novo WhatsApp:', data.whatsapp);
+
+            if (novoNome && novoEmail && novoWhatsApp) {
+                await db.collection(collection).doc(id).update({
+                    nomeCompleto: novoNome,
+                    email: novoEmail,
+                    whatsapp: novoWhatsApp
+                });
+            }
+        }
+
+        // Função para carregar usuários no chat
+        function carregarUsuariosChat() {
+            const select = document.getElementById('chat-usuario');
+            db.collection('Alunos').onSnapshot(snapshot => {
+                select.innerHTML = '<option value="">Selecione um usuário</option>';
+                snapshot.forEach(doc => {
+                    const aluno = doc.data();
+                    const option = document.createElement('option');
+                    option.value = doc.id;
+                    option.textContent = `${aluno.nomeCompleto} (${aluno.usuario})`;
+                    select.appendChild(option);
+                });
+            });
+        }
+
+        // Função para carregar mensagens do chat
+        function carregarMensagens(usuarioId) {
+            if (!usuarioId) return;
             const mensagens = document.getElementById('mensagens-chat');
             mensagens.innerHTML = '';
 
-            const snapshot = await db.collection('Chat').where('usuarioId', '==', usuarioId).get();
-            snapshot.forEach(doc => {
-                const mensagem = doc.data();
-                const div = document.createElement('div');
-                div.textContent = `${mensagem.remetente}: ${mensagem.texto}`;
-                mensagens.appendChild(div);
-            });
+            db.collection('Chat').where('usuarioId', '==', usuarioId)
+                .orderBy('timestamp')
+                .onSnapshot(snapshot => {
+                    mensagens.innerHTML = '';
+                    snapshot.forEach(doc => {
+                        const mensagem = doc.data();
+                        const div = document.createElement('div');
+                        div.textContent = `${mensagem.remetente}: ${mensagem.texto}`;
+                        mensagens.appendChild(div);
+                    });
+                });
         }
 
+        // Função para enviar mensagem no chat
         async function enviarMensagemChat() {
             const mensagem = document.getElementById('mensagem-chat').value;
-            const usuarioId = 'ID_DO_USUARIO'; // Substitua pelo ID do usuário
+            const usuarioId = document.getElementById('chat-usuario').value;
+
+            if (!usuarioId || !mensagem) return;
 
             await db.collection('Chat').add({
                 usuarioId,
@@ -463,11 +591,6 @@
             });
 
             document.getElementById('mensagem-chat').value = '';
-            carregarMensagens(usuarioId);
-        }
-
-        function fecharChat() {
-            mostrarTela('painel-admin');
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -511,14 +634,16 @@
                 const senha = e.target.elements[1].value;
 
                 try {
-                    // Verifica se é o administrador
                     if (matricula === 'admin' && senha === 'admin') {
                         mostrarModal('Sucesso', 'Login como administrador realizado com sucesso!', 'sucesso');
                         mostrarTela('painel-admin');
+                        carregarUsuarios();
+                        carregarUsuariosPendentes();
+                        carregarUsuariosNegados();
+                        carregarUsuariosChat();
                         return;
                     }
 
-                    // Lógica normal de login do aluno
                     const snapshot = await db.collection('Alunos')
                         .where('usuario', '==', matricula)
                         .where('senha', '==', senha)
@@ -538,12 +663,14 @@
                         mostrarModal('Erro', 'Cadastro não aprovado! Contate o suporte.', 'negado');
                         mostrarTela('login-aluno');
                     } else {
-                        // Verifica se o aluno é administrador
                         const adminSnapshot = await db.collection('Administradores').doc(matricula).get();
                         if (adminSnapshot.exists) {
                             mostrarTela('painel-admin');
+                            carregarUsuarios();
+                            carregarUsuariosPendentes();
+                            carregarUsuariosNegados();
+                            carregarUsuariosChat();
                         } else {
-                            // Exibe mensagem do administrador, se houver
                             if (aluno.mensagemAdmin) {
                                 document.getElementById('mensagem-admin').classList.remove('hidden');
                                 document.getElementById('texto-mensagem').textContent = aluno.mensagemAdmin;
@@ -609,30 +736,6 @@
                 } catch (error) {
                     console.error('Erro no login:', error);
                 }
-            });
-
-            // Enviar Mensagem
-            document.getElementById('formEnviarMensagem').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const matricula = document.getElementById('aluno-mensagem').value;
-                const mensagem = document.getElementById('texto-mensagem').value;
-                await enviarMensagemParaAluno(matricula, mensagem);
-                e.target.reset();
-            });
-
-            // Definir Administrador
-            document.getElementById('formDefinirAdmin').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const matricula = document.getElementById('aluno-admin').value;
-                await definirAdministrador(matricula);
-                e.target.reset();
-            });
-
-            // Carregar usuários ao abrir a tela
-            document.getElementById('painel-admin').addEventListener('click', () => {
-                carregarUsuarios();
-                carregarUsuariosPendentes();
-                carregarUsuariosNegados();
             });
 
             document.getElementById('overlay').addEventListener('click', fecharModal);
