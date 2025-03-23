@@ -9,6 +9,7 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 
     <style>
         * {
@@ -125,6 +126,15 @@
             width: auto;
             margin: 0 8px 0 0;
         }
+
+        .badge-admin {
+            background: gold;
+            color: black;
+            padding: 4px 8px;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            margin-left: 8px;
+        }
     </style>
 </head>
 <body>
@@ -182,6 +192,9 @@
     <!-- Área do Aluno -->
     <div id="area-aluno" class="container hidden">
         <h1>Área do Aluno</h1>
+        <div id="mensagem-admin" class="hidden">
+            <p><strong>Mensagem do Administrador:</strong> <span id="texto-mensagem"></span></p>
+        </div>
         <div class="btn-group">
             <button onclick="mostrarTela('modulo1')">Módulo 1</button>
             <button onclick="mostrarTela('modulo2')">Módulo 2</button>
@@ -237,6 +250,45 @@
         </div>
     </div>
 
+    <!-- Painel do Administrador -->
+    <div id="painel-admin" class="container hidden">
+        <h1>Painel do Administrador <span class="badge-admin">Admin</span></h1>
+        <div class="btn-group">
+            <button onclick="mostrarTela('aprovar-alunos')">Aprovar Alunos</button>
+            <button onclick="mostrarTela('enviar-mensagem')">Enviar Mensagem</button>
+            <button onclick="mostrarTela('definir-admin')">Definir Administrador</button>
+            <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
+        </div>
+    </div>
+
+    <!-- Aprovar Alunos -->
+    <div id="aprovar-alunos" class="container hidden">
+        <h1>Alunos Pendentes</h1>
+        <div id="lista-alunos-pendentes"></div>
+        <button class="back-btn" onclick="mostrarTela('painel-admin')">Voltar</button>
+    </div>
+
+    <!-- Enviar Mensagem -->
+    <div id="enviar-mensagem" class="container hidden">
+        <h1>Enviar Mensagem</h1>
+        <form id="formEnviarMensagem">
+            <input type="text" id="aluno-mensagem" placeholder="Matrícula do Aluno" required>
+            <textarea id="texto-mensagem" placeholder="Mensagem" required></textarea>
+            <button type="submit">Enviar</button>
+            <button type="button" class="back-btn" onclick="mostrarTela('painel-admin')">Voltar</button>
+        </form>
+    </div>
+
+    <!-- Definir Administrador -->
+    <div id="definir-admin" class="container hidden">
+        <h1>Definir Administrador</h1>
+        <form id="formDefinirAdmin">
+            <input type="text" id="aluno-admin" placeholder="Matrícula do Aluno" required>
+            <button type="submit">Definir como Admin</button>
+            <button type="button" class="back-btn" onclick="mostrarTela('painel-admin')">Voltar</button>
+        </form>
+    </div>
+
     <script>
         const firebaseConfig = {
             apiKey: "AIzaSyC6MCXqH2TXWzahesHtyk7JeB-gHshiWFc",
@@ -247,10 +299,11 @@
             appId: "1:149920030952:web:e19ea0ba0b0f400d18295d"
         };
 
-        let db;
+        let db, auth;
         try {
             firebase.initializeApp(firebaseConfig);
             db = firebase.firestore();
+            auth = firebase.auth();
             console.log('Firebase inicializado');
         } catch (e) {
             alert('Erro ao carregar Firebase: ' + e.message);
@@ -277,6 +330,62 @@
         function fecharModal() {
             document.getElementById('modal').style.display = 'none';
             document.getElementById('overlay').style.display = 'none';
+        }
+
+        // Função para carregar alunos pendentes
+        async function carregarAlunosPendentes() {
+            const lista = document.getElementById('lista-alunos-pendentes');
+            lista.innerHTML = '';
+
+            const snapshot = await db.collection('Alunos').where('status', '==', 'pendente').get();
+            snapshot.forEach(doc => {
+                const aluno = doc.data();
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <p><strong>${aluno.nomeCompleto}</strong> (${aluno.matricula})</p>
+                    <button onclick="aprovarAluno('${doc.id}')">Aprovar</button>
+                    <button onclick="negarAluno('${doc.id}')">Negar</button>
+                `;
+                lista.appendChild(div);
+            });
+        }
+
+        // Função para aprovar aluno
+        async function aprovarAluno(id) {
+            await db.collection('Alunos').doc(id).update({ status: 'aprovado' });
+            carregarAlunosPendentes();
+            mostrarModal('Sucesso', 'Aluno aprovado com sucesso!');
+        }
+
+        // Função para negar aluno
+        async function negarAluno(id) {
+            await db.collection('Alunos').doc(id).update({ status: 'negado' });
+            carregarAlunosPendentes();
+            mostrarModal('Sucesso', 'Aluno negado com sucesso!');
+        }
+
+        // Função para enviar mensagem para aluno
+        async function enviarMensagemParaAluno(matricula, mensagem) {
+            await db.collection('Alunos').doc(matricula).update({ mensagemAdmin: mensagem });
+            mostrarModal('Sucesso', 'Mensagem enviada com sucesso!');
+        }
+
+        // Função para definir administrador
+        async function definirAdministrador(matricula) {
+            const alunoRef = db.collection('Alunos').doc(matricula);
+            const aluno = await alunoRef.get();
+
+            if (!aluno.exists) {
+                mostrarModal('Erro', 'Aluno não encontrado!');
+                return;
+            }
+
+            await db.collection('Administradores').doc(matricula).set({
+                nome: aluno.data().nomeCompleto,
+                matricula: matricula
+            });
+
+            mostrarModal('Sucesso', 'Administrador definido com sucesso!');
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -338,8 +447,18 @@
                         mostrarModal('Erro', 'Cadastro não aprovado! Contate o suporte.');
                         mostrarTela('login-aluno');
                     } else {
-                        mostrarModal('Sucesso', 'Login realizado com sucesso!');
-                        mostrarTela('area-aluno');
+                        // Verifica se o aluno é administrador
+                        const adminSnapshot = await db.collection('Administradores').doc(matricula).get();
+                        if (adminSnapshot.exists) {
+                            mostrarTela('painel-admin');
+                        } else {
+                            // Exibe mensagem do administrador, se houver
+                            if (aluno.mensagemAdmin) {
+                                document.getElementById('mensagem-admin').classList.remove('hidden');
+                                document.getElementById('texto-mensagem').textContent = aluno.mensagemAdmin;
+                            }
+                            mostrarTela('area-aluno');
+                        }
                     }
                 } catch (error) {
                     console.error('Erro no login:', error);
@@ -400,6 +519,26 @@
                     console.error('Erro no login:', error);
                 }
             });
+
+            // Enviar Mensagem
+            document.getElementById('formEnviarMensagem').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const matricula = document.getElementById('aluno-mensagem').value;
+                const mensagem = document.getElementById('texto-mensagem').value;
+                await enviarMensagemParaAluno(matricula, mensagem);
+                e.target.reset();
+            });
+
+            // Definir Administrador
+            document.getElementById('formDefinirAdmin').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const matricula = document.getElementById('aluno-admin').value;
+                await definirAdministrador(matricula);
+                e.target.reset();
+            });
+
+            // Carregar alunos pendentes ao abrir a tela
+            document.getElementById('aprovar-alunos').addEventListener('click', carregarAlunosPendentes);
 
             document.getElementById('overlay').addEventListener('click', fecharModal);
         });
