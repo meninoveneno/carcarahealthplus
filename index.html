@@ -173,6 +173,7 @@
             <input type="text" placeholder="Matrícula" required>
             <input type="email" placeholder="Email" required>
             <input type="date" required>
+            <input type="text" placeholder="WhatsApp" required> <!-- Novo campo WhatsApp -->
             <button type="submit">Cadastrar</button>
             <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-aluno')">Voltar</button>
         </form>
@@ -183,7 +184,7 @@
         <h1>Login Aluno</h1>
         <form id="formLoginAluno">
             <input type="text" placeholder="Matrícula" required>
-            <input type="date" placeholder="Data de Nascimento" required>
+            <input type="text" placeholder="Senha" required>
             <button type="submit">Entrar</button>
             <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-aluno')">Voltar</button>
         </form>
@@ -220,6 +221,7 @@
             <input type="date" required>
             <input type="email" placeholder="Email (opcional)">
             <input type="text" placeholder="Cartão SUS (opcional)">
+            <input type="text" placeholder="WhatsApp" required> <!-- Novo campo WhatsApp -->
             <div class="checkbox-container">
                 <input type="checkbox" required>
                 <span>Confirmo que li e aceito os termos de uso</span>
@@ -407,7 +409,8 @@
                         matricula: values[1],
                         email: values[2],
                         dataNascimento: values[3],
-                        usuario: values[1], // Usuário é a matrícula
+                        whatsapp: values[4], // Novo campo WhatsApp
+                        usuario: values[1],
                         senha: senha,
                         status: 'pendente',
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
@@ -424,10 +427,17 @@
             document.getElementById('formLoginAluno').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const matricula = e.target.elements[0].value;
-                const dataNasc = e.target.elements[1].value;
-                const senha = formatarDataBrasileira(dataNasc);
+                const senha = e.target.elements[1].value;
 
                 try {
+                    // Verifica se é o administrador
+                    if (matricula === 'admin' && senha === 'admin') {
+                        mostrarModal('Sucesso', 'Login como administrador realizado com sucesso!');
+                        mostrarTela('painel-admin');
+                        return;
+                    }
+
+                    // Lógica normal de login do aluno
                     const snapshot = await db.collection('Alunos')
                         .where('usuario', '==', matricula)
                         .where('senha', '==', senha)
@@ -482,6 +492,7 @@
                         dataNascimento: dataNasc,
                         email: elements[2].value || '',
                         cartaoSus: elements[3].value || '',
+                        whatsapp: elements[4].value, // Novo campo WhatsApp
                         usuario,
                         senha: senha,
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
