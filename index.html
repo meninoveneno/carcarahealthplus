@@ -199,7 +199,7 @@
           <input type="checkbox" id="termosPaciente">
           <label for="termosPaciente">Confirmo que li e aceito os termos de uso*</label>
         </div>
-        <button type="submit" id="cadastrarPacienteBtn" disabled>Cadastrar</button>
+        <button type="submit" id="cadastrarPacienteBtn">Cadastrar</button>
       </form>
     </div>
 
@@ -234,12 +234,12 @@
       <h1>Carcará Health +</h1>
       <form id="loginForm">
         <div class="input-group">
-          <label for="usuario">Usuário</label>
+          <label for="usuario">Matrícula*</label>
           <input type="text" id="usuario" required>
         </div>
         <div class="input-group">
-          <label for="senha">Senha</label>
-          <input type="password" id="senha" required>
+          <label for="senha">Senha (Data de Nascimento)*</label>
+          <input type="date" id="senha" required>
         </div>
         <button type="submit">Entrar</button>
       </form>
@@ -266,7 +266,7 @@
           <label for="dataNascimentoAluno">Data de Nascimento*</label>
           <input type="date" id="dataNascimentoAluno" required>
         </div>
-        <button type="submit" id="cadastrarAlunoBtn" disabled>Cadastrar</button>
+        <button type="submit" id="cadastrarAlunoBtn">Cadastrar</button>
       </form>
     </div>
   </div>
@@ -319,7 +319,7 @@
       }
 
       nomeInputPaciente.addEventListener("input", validarFormularioCadastroPaciente);
-      dataInputPaciente.addEventListener("input", validarFormularioCadastroPaciente);
+      dataInputPaciente.addEventListener("change", validarFormularioCadastroPaciente);
       termosCheckboxPaciente.addEventListener("change", validarFormularioCadastroPaciente);
       validarFormularioCadastroPaciente();
 
@@ -348,7 +348,7 @@
             alert(`Cadastro realizado com sucesso!\nUsuário: ${usuario}\nSenha: ${senha}\nGuarde essas informações!`);
             mostrarTela('telaPacienteOpcoes');
             cadastroPacienteForm.reset();
-            validarFormularioCadastroPaciente(); // Revalida para desabilitar o botão após reset
+            validarFormularioCadastroPaciente();
           } catch (error) {
             console.error("Erro ao cadastrar: ", error);
             alert("Erro ao realizar cadastro. Tente novamente.");
@@ -392,7 +392,7 @@
       function validarFormularioCadastroAluno() {
         const nomeValido = nomeAlunoInput.value.trim().length > 0;
         const matriculaValida = matriculaInput.value.trim().length > 0;
-        const emailValido = emailAlunoInput.value.trim().length > 0;
+        const emailValido = emailAlunoInput.value.trim().length > 0 && /\S+@\S+\.\S+/.test(emailAlunoInput.value);
         const dataValida = dataNascimentoAlunoInput.value !== "";
         const formularioValido = nomeValido && matriculaValida && emailValido && dataValida;
         cadastrarAlunoBtn.disabled = !formularioValido;
@@ -406,16 +406,39 @@
       nomeAlunoInput.addEventListener("input", validarFormularioCadastroAluno);
       matriculaInput.addEventListener("input", validarFormularioCadastroAluno);
       emailAlunoInput.addEventListener("input", validarFormularioCadastroAluno);
-      dataNascimentoAlunoInput.addEventListener("input", validarFormularioCadastroAluno);
+      dataNascimentoAlunoInput.addEventListener("change", validarFormularioCadastroAluno);
       validarFormularioCadastroAluno();
 
-      cadastroAlunoForm.addEventListener("submit", (event) => {
+      cadastroAlunoForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         if (!cadastrarAlunoBtn.disabled) {
-          alert("Cadastro de aluno realizado com sucesso! (Simulação)");
-          mostrarTela('telaAlunoOpcoes');
-          cadastroAlunoForm.reset();
-          validarFormularioCadastroAluno(); // Revalida para desabilitar o botão após reset
+          const nomeCompleto = nomeAlunoInput.value.trim();
+          const [nome, ...sobrenomeArr] = nomeCompleto.split(" ");
+          const sobrenome = sobrenomeArr.join("");
+          const matricula = matriculaInput.value.trim();
+          const email = emailAlunoInput.value.trim();
+          const dataNascimento = dataNascimentoAlunoInput.value;
+          const usuario = `${nome}${sobrenome}${matricula}`.toLowerCase();
+
+          try {
+            await db.collection("Alunos").doc(usuario).set({
+              nomeCompleto: nomeCompleto,
+              matricula: matricula,
+              email: email,
+              dataNascimento: dataNascimento,
+              usuario: matricula,
+              senha: dataNascimento,
+              approved: "No",
+              timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            alert(`Solicitação de registro de aluno feita!\nO seu usuário é: ${matricula}\nSua senha é: ${dataNascimento}\nGuarde essas informações!`);
+            mostrarTela('telaInicial'); // Volta para a tela inicial após fechar o pop-up
+            cadastroAlunoForm.reset();
+            validarFormularioCadastroAluno();
+          } catch (error) {
+            console.error("Erro ao cadastrar aluno: ", error);
+            alert("Erro ao realizar cadastro. Tente novamente.");
+          }
         }
       });
 
@@ -424,17 +447,33 @@
       const usuarioInput = document.getElementById("usuario");
       const senhaInput = document.getElementById("senha");
 
-      loginForm.addEventListener("submit", (event) => {
+      loginForm.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const usuario = usuarioInput.value.trim();
-        const senha = senhaInput.value.trim();
+        const matricula = usuarioInput.value.trim();
+        const senha = senhaInput.value;
 
-        if (usuario === "aluno" && senha === "aluno123") {
-          alert("Login bem-sucedido! Bem-vindo, aluno! (Simulação)");
-          mostrarTela('telaAlunoOpcoes');
-          loginForm.reset();
-        } else {
-          alert("Usuário ou senha incorretos!");
+        try {
+          const querySnapshot = await db.collection("Alunos")
+            .where("matricula", "==", matricula)
+            .where("senha", "==", senha)
+            .get();
+
+          if (!querySnapshot.empty) {
+            const alunoDoc = querySnapshot.docs[0];
+            const alunoData = alunoDoc.data();
+            if (alunoData.approved === "Yes") {
+              alert(`Login bem-sucedido! Bem-vindo, ${alunoData.nomeCompleto}!`);
+              mostrarTela('telaAlunoOpcoes');
+              loginForm.reset();
+            } else {
+              alert("Seu cadastro ainda não foi aprovado!");
+            }
+          } else {
+            alert("Matrícula ou senha incorretos!");
+          }
+        } catch (error) {
+          console.error("Erro ao fazer login: ", error);
+          alert("Erro ao fazer login. Tente novamente.");
         }
       });
     });
