@@ -1,58 +1,707 @@
-async function editarUsuario(id) {
-    const doc = await db.collection('Alunos').doc(id).get();
-    const usuario = doc.data();
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Carcará Health +</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 
-    const form = document.createElement('form');
-    form.className = 'edit-form';
-    form.innerHTML = `
-        <input type="text" name="nomeCompleto" value="${usuario.nomeCompleto}" placeholder="Nome Completo" required>
-        <input type="text" name="matricula" value="${usuario.matricula}" placeholder="Matrícula" required>
-        <input type="email" name="email" value="${usuario.email}" placeholder="Email" required>
-        <input type="date" name="dataNascimento" value="${usuario.dataNascimento}" required>
-        <input type="text" name="whatsapp" value="${usuario.whatsapp}" placeholder="WhatsApp" required>
-        <input type="text" name="senha" value="${usuario.senha}" placeholder="Senha" required>
-        <select name="admin">
-            <option value="no" ${usuario.admin !== 'yes' ? 'selected' : ''}>Usuário Comum</option>
-            <option value="yes" ${usuario.admin === 'yes' ? 'selected' : ''}>Administrador</option>
-        </select>
-        <select name="status">
-            <option value="aprovado" ${usuario.status === 'aprovado' ? 'selected' : ''}>Aprovado</option>
-            <option value="pendente" ${usuario.status === 'pendente' ? 'selected' : ''}>Pendente</option>
-            <option value="negado" ${usuario.status === 'negado' ? 'selected' : ''}>Negado</option>
-        </select>
-        <textarea name="motivoNegacao" placeholder="Motivo da negação (obrigatório se negado)" ${usuario.status === 'negado' ? `value="${usuario.motivoNegacao || ''}"` : ''}></textarea>
-        <button type="submit">Salvar</button>
-        <button type="button" onclick="excluirUsuario('${id}')">Excluir</button>
-    `;
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const data = {
-            nomeCompleto: form.nomeCompleto.value,
-            matricula: form.matricula.value,
-            email: form.email.value,
-            dataNascimento: form.dataNascimento.value,
-            whatsapp: form.whatsapp.value,
-            senha: form.senha.value, // Incluída a senha no objeto de atualização
-            admin: form.admin.value,
-            status: form.status.value
-        };
-
-        if (form.status.value === 'negado') {
-            if (!form.motivoNegacao.value) {
-                alert('O motivo da negação é obrigatório ao negar um usuário.');
-                return;
-            }
-            data.motivoNegacao = form.motivoNegacao.value;
-            data.negadoPor = auth.currentUser ? auth.currentUser.uid : 'admin';
-        } else {
-            data.motivoNegacao = firebase.firestore.FieldValue.delete();
-            data.negadoPor = firebase.firestore.FieldValue.delete();
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
         }
 
-        await db.collection('Alunos').doc(id).update(data);
-        fecharModal();
-    });
+        body {
+            min-height: 100vh;
+            background: linear-gradient(45deg, #8B0000, #450000);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
 
-    mostrarModal('Editar Usuário', form, 'sucesso');
-}
+        .container {
+            background: rgba(26, 42, 74, 0.9);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 500px;
+            color: white;
+            position: relative;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.8rem;
+            text-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        button {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: #d32f2f;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover:not(:disabled) {
+            background: #b71c1c;
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            background: #2c3e50;
+            border: none;
+            border-radius: 5px;
+            color: white;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .back-btn {
+            background: #2c3e50;
+            margin-top: 1rem;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(26, 42, 74, 1);
+            padding: 2rem;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 1000;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            color: white;
+            width: 90%;
+            max-width: 700px; /* Aumentado para maior comprimento horizontal */
+        }
+
+        .modal.pendente {
+            background: #ffeb3b;
+            color: black;
+        }
+
+        .modal.negado {
+            background: #f44336;
+            color: white;
+        }
+
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .checkbox-container input {
+            width: auto;
+            margin: 0 8px 0 0;
+        }
+
+        .badge-admin {
+            background: gold;
+            color: black;
+            padding: 4px 8px;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            margin-left: 8px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .approved { background: #00ff00; }
+        .pending { background: #ffeb3b; }
+        .denied { background: #ff0000; }
+
+        .abas {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .aba {
+            display: none;
+        }
+
+        .aba.visible {
+            display: block;
+        }
+
+        .search-bar {
+            margin-bottom: 1rem;
+        }
+
+        .user-item {
+            background: #2c3e50;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .edit-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Modal -->
+    <div class="overlay" id="overlay"></div>
+    <div class="modal" id="modal">
+        <h3 id="modal-title"></h3>
+        <p id="modal-content"></p>
+        <button onclick="fecharModal()">Fechar</button>
+    </div>
+
+    <!-- Telas -->
+    <div id="tela-inicial" class="container">
+        <h1>Carcará Health +</h1>
+        <div class="btn-group">
+            <button onclick="mostrarTela('tela-opcoes-aluno')">Sou Aluno</button>
+            <button onclick="mostrarTela('tela-opcoes-paciente')">Sou Paciente</button>
+        </div>
+    </div>
+
+    <!-- Opções Aluno -->
+    <div id="tela-opcoes-aluno" class="container hidden">
+        <h1>Carcará Health +</h1>
+        <div class="btn-group">
+            <button onclick="mostrarTela('cadastro-aluno')">Cadastrar</button>
+            <button onclick="mostrarTela('login-aluno')">Login</button>
+            <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
+        </div>
+    </div>
+
+    <!-- Cadastro Aluno -->
+    <div id="cadastro-aluno" class="container hidden">
+        <h1>Cadastro de Aluno</h1>
+        <form id="formCadastroAluno">
+            <input type="text" placeholder="Nome Completo" required>
+            <input type="text" placeholder="Matrícula" required>
+            <input type="email" placeholder="Email" required>
+            <input type="date" required>
+            <input type="text" placeholder="WhatsApp" required>
+            <button type="submit">Cadastrar</button>
+            <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-aluno')">Voltar</button>
+        </form>
+    </div>
+
+    <!-- Login Aluno -->
+    <div id="login-aluno" class="container hidden">
+        <h1>Login Aluno</h1>
+        <form id="formLoginAluno">
+            <input type="text" placeholder="Matrícula" required>
+            <input type="text" placeholder="Senha" required>
+            <p>Exemplo: usuário: matrícula, senha: DDMMYYYY</p>
+            <button type="submit">Entrar</button>
+            <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-aluno')">Voltar</button>
+        </form>
+    </div>
+
+    <!-- Área do Aluno -->
+    <div id="area-aluno" class="container hidden">
+        <h1>Área do Aluno</h1>
+        <div id="mensagem-admin" class="hidden">
+            <p><strong>Mensagem do Administrador:</strong> <span id="texto-mensagem"></span></p>
+        </div>
+        <div class="btn-group">
+            <button onclick="mostrarTela('modulo1')">Módulo 1</button>
+            <button onclick="mostrarTela('modulo2')">Módulo 2</button>
+            <button class="back-btn" onclick="sairAreaAluno()">Sair</button>
+        </div>
+    </div>
+
+    <!-- Opções Paciente -->
+    <div id="tela-opcoes-paciente" class="container hidden">
+        <h1>Carcará Health +</h1>
+        <div class="btn-group">
+            <button onclick="mostrarTela('cadastro-paciente')">Cadastrar</button>
+            <button onclick="mostrarTela('login-paciente')">Login</button>
+            <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
+        </div>
+    </div>
+
+    <!-- Cadastro Paciente -->
+    <div id="cadastro-paciente" class="container hidden">
+        <h1>Cadastro de Paciente</h1>
+        <form id="formCadastroPaciente">
+            <input type="text" placeholder="Nome Completo" required>
+            <input type="date" required>
+            <input type="email" placeholder="Email (opcional)">
+            <input type="text" placeholder="Cartão SUS (opcional)">
+            <input type="text" placeholder="WhatsApp" required>
+            <div class="checkbox-container">
+                <input type="checkbox" required>
+                <span>Confirmo que li e aceito os termos de uso</span>
+            </div>
+            <button type="submit">Cadastrar</button>
+            <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-paciente')">Voltar</button>
+        </form>
+    </div>
+
+    <!-- Login Paciente -->
+    <div id="login-paciente" class="container hidden">
+        <h1>Login Paciente</h1>
+        <form id="formLoginPaciente">
+            <input type="text" placeholder="Usuário" required>
+            <input type="text" placeholder="Senha" required>
+            <p>Exemplo: usuário: nomeesobrenomexxyyzzzz, senha: DDMMYYYY</p>
+            <button type="submit">Entrar</button>
+            <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-paciente')">Voltar</button>
+        </form>
+    </div>
+
+    <!-- Tela de Módulos -->
+    <div id="tela-modulos" class="container hidden">
+        <h1>Módulos</h1>
+        <div class="btn-group">
+            <button onclick="mostrarTela('modulo1')">Módulo 1</button>
+            <button onclick="mostrarTela('modulo2')">Módulo 2</button>
+            <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
+        </div>
+    </div>
+
+    <!-- Painel do Administrador -->
+    <div id="painel-admin" class="container hidden">
+        <h1>Painel do Administrador <span class="badge-admin">Admin</span></h1>
+        <div class="abas">
+            <button onclick="mostrarAba('usuarios'); carregarUsuarios();">Usuários</button>
+            <button onclick="mostrarAba('chat'); carregarUsuariosChat();">Chat</button>
+        </div>
+
+        <!-- Aba Usuários -->
+        <div id="aba-usuarios" class="aba visible">
+            <h2>Usuários</h2>
+            <input type="text" class="search-bar" id="search-usuarios" placeholder="Pesquisar usuários...">
+            <div id="lista-usuarios"></div>
+        </div>
+
+        <!-- Aba Chat -->
+        <div id="aba-chat" class="aba hidden">
+            <h2>Chat</h2>
+            <select id="chat-usuario" onchange="carregarMensagens(this.value)">
+                <option value="">Selecione um usuário</option>
+            </select>
+            <div id="mensagens-chat"></div>
+            <input type="text" id="mensagem-chat" placeholder="Digite sua mensagem...">
+            <button onclick="enviarMensagemChat()">Enviar</button>
+        </div>
+
+        <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC6MCXqH2TXWzahesHtyk7JeB-gHshiWFc",
+            authDomain: "carcarahealthplus-4ef7b.firebaseapp.com",
+            projectId: "carcarahealthplus-4ef7b",
+            storageBucket: "carcarahealthplus-4ef7b.firebasestorage.app",
+            messagingSenderId: "149920030952",
+            appId: "1:149920030952:web:e19ea0ba0b0f400d18295d"
+        };
+
+        let db, auth;
+        let currentUserId = null;
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            auth = firebase.auth();
+            console.log('Firebase inicializado');
+        } catch (e) {
+            alert('Erro ao carregar Firebase: ' + e.message);
+        }
+
+        function formatarDataBrasileira(data) {
+            const partes = data.split('-');
+            return partes[2] + partes[1] + partes[0];
+        }
+
+        function mostrarTela(idTela) {
+            document.querySelectorAll('.container').forEach(tela => tela.classList.add('hidden'));
+            document.getElementById(idTela).classList.remove('hidden');
+        }
+
+        function mostrarModal(titulo, conteudo, status) {
+            const modal = document.getElementById('modal');
+            modal.className = `modal ${status}`;
+            document.getElementById('modal-title').textContent = titulo;
+            if (typeof conteudo === 'string') {
+                document.getElementById('modal-content').textContent = conteudo;
+            } else {
+                document.getElementById('modal-content').innerHTML = '';
+                document.getElementById('modal-content').appendChild(conteudo);
+            }
+            document.getElementById('modal').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+        }
+
+        function fecharModal() {
+            document.getElementById('modal').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+        }
+
+        function mostrarAba(aba) {
+            document.querySelectorAll('.aba').forEach(aba => aba.classList.add('hidden'));
+            document.getElementById(`aba-${aba}`).classList.remove('hidden');
+        }
+
+        function sairAreaAluno() {
+            mostrarTela('tela-inicial');
+        }
+
+        function carregarUsuarios() {
+            const lista = document.getElementById('lista-usuarios');
+            const search = document.getElementById('search-usuarios');
+
+            db.collection('Alunos').onSnapshot(snapshot => {
+                lista.innerHTML = '';
+                const usuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                const filteredUsuarios = usuarios.filter(u => 
+                    u.nomeCompleto.toLowerCase().includes(search.value.toLowerCase()) ||
+                    u.usuario.toLowerCase().includes(search.value.toLowerCase())
+                );
+
+                filteredUsuarios.sort((a, b) => {
+                    const aIsAdmin = a.admin === 'yes';
+                    const bIsAdmin = b.admin === 'yes';
+                    if (aIsAdmin !== bIsAdmin) return bIsAdmin - aIsAdmin;
+                    return a.nomeCompleto.localeCompare(b.nomeCompleto);
+                });
+
+                filteredUsuarios.forEach(usuario => {
+                    const div = document.createElement('div');
+                    div.className = 'user-item';
+                    const isAdmin = usuario.admin === 'yes';
+                    let statusClass;
+                    switch (usuario.status) {
+                        case 'aprovado': statusClass = 'approved'; break;
+                        case 'pendente': statusClass = 'pending'; break;
+                        case 'negado': statusClass = 'denied'; break;
+                    }
+                    div.innerHTML = `
+                        <div>
+                            <span class="status-indicator ${statusClass}"></span>
+                            <strong>${usuario.nomeCompleto}</strong> (${usuario.usuario})
+                            ${isAdmin ? '<span class="badge-admin">Admin</span>' : ''}
+                        </div>
+                        <button onclick="editarUsuario('${usuario.id}')">Editar</button>
+                    `;
+                    lista.appendChild(div);
+                });
+            });
+
+            search.addEventListener('input', () => carregarUsuarios());
+        }
+
+        async function editarUsuario(id) {
+            const doc = await db.collection('Alunos').doc(id).get();
+            const usuario = doc.data();
+
+            const form = document.createElement('form');
+            form.className = 'edit-form';
+            form.innerHTML = `
+                <input type="text" name="nomeCompleto" value="${usuario.nomeCompleto}" placeholder="Nome Completo" required>
+                <input type="text" name="matricula" value="${usuario.matricula}" placeholder="Matrícula" required>
+                <input type="email" name="email" value="${usuario.email}" placeholder="Email" required>
+                <input type="date" name="dataNascimento" value="${usuario.dataNascimento}" required>
+                <input type="text" name="whatsapp" value="${usuario.whatsapp}" placeholder="WhatsApp" required>
+                <input type="text" name="senha" value="${usuario.senha}" placeholder="Senha" required>
+                <select name="admin">
+                    <option value="no" ${usuario.admin !== 'yes' ? 'selected' : ''}>Usuário Comum</option>
+                    <option value="yes" ${usuario.admin === 'yes' ? 'selected' : ''}>Administrador</option>
+                </select>
+                <select name="status">
+                    <option value="aprovado" ${usuario.status === 'aprovado' ? 'selected' : ''}>Aprovado</option>
+                    <option value="pendente" ${usuario.status === 'pendente' ? 'selected' : ''}>Pendente</option>
+                    <option value="negado" ${usuario.status === 'negado' ? 'selected' : ''}>Negado</option>
+                </select>
+                <textarea name="motivoNegacao" placeholder="Motivo da negação (obrigatório se negado)" ${usuario.status === 'negado' ? `value="${usuario.motivoNegacao || ''}"` : ''}></textarea>
+                <button type="submit">Salvar</button>
+                <button type="button" onclick="excluirUsuario('${id}')">Excluir</button>
+            `;
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const data = {
+                    nomeCompleto: form.nomeCompleto.value,
+                    matricula: form.matricula.value,
+                    email: form.email.value,
+                    dataNascimento: form.dataNascimento.value,
+                    whatsapp: form.whatsapp.value,
+                    senha: form.senha.value,
+                    admin: form.admin.value,
+                    status: form.status.value
+                };
+
+                if (form.status.value === 'negado') {
+                    if (!form.motivoNegacao.value) {
+                        alert('O motivo da negação é obrigatório ao negar um usuário.');
+                        return;
+                    }
+                    data.motivoNegacao = form.motivoNegacao.value;
+                    data.negadoPor = auth.currentUser ? auth.currentUser.uid : 'admin';
+                } else {
+                    data.motivoNegacao = firebase.firestore.FieldValue.delete();
+                    data.negadoPor = firebase.firestore.FieldValue.delete();
+                }
+
+                await db.collection('Alunos').doc(id).update(data);
+                fecharModal();
+            });
+
+            mostrarModal('Editar Usuário', form, 'sucesso');
+        }
+
+        async function excluirUsuario(id) {
+            if (confirm('Deseja realmente excluir este usuário?')) {
+                await db.collection('Alunos').doc(id).delete();
+                fecharModal();
+            }
+        }
+
+        function carregarUsuariosChat() {
+            const select = document.getElementById('chat-usuario');
+            db.collection('Alunos').where('status', '==', 'aprovado').onSnapshot(snapshot => {
+                select.innerHTML = '<option value="">Selecione um usuário</option>';
+                snapshot.forEach(doc => {
+                    const aluno = doc.data();
+                    const option = document.createElement('option');
+                    option.value = doc.id;
+                    option.textContent = `${aluno.nomeCompleto} (${aluno.usuario})`;
+                    select.appendChild(option);
+                });
+            });
+        }
+
+        function carregarMensagens(usuarioId) {
+            if (!usuarioId) return;
+            const mensagens = document.getElementById('mensagens-chat');
+            mensagens.innerHTML = '';
+
+            db.collection('Chat').where('usuarioId', '==', usuarioId)
+                .orderBy('timestamp')
+                .onSnapshot(snapshot => {
+                    mensagens.innerHTML = '';
+                    snapshot.forEach(doc => {
+                        const mensagem = doc.data();
+                        const div = document.createElement('div');
+                        div.textContent = `${mensagem.remetente}: ${mensagem.texto}`;
+                        mensagens.appendChild(div);
+                    });
+                });
+        }
+
+        async function enviarMensagemChat() {
+            const mensagem = document.getElementById('mensagem-chat').value;
+            const usuarioId = document.getElementById('chat-usuario').value;
+
+            if (!usuarioId || !mensagem) return;
+
+            await db.collection('Chat').add({
+                usuarioId,
+                remetente: 'Administrador',
+                texto: mensagem,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            document.getElementById('mensagem-chat').value = '';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const formAluno = document.getElementById('formCadastroAluno');
+
+            formAluno.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const values = Array.from(formAluno.elements)
+                    .filter(el => el.tagName === 'INPUT')
+                    .map(el => el.value);
+
+                try {
+                    const usuario = values[0].replace(/\s+/g, '').toLowerCase() + values[1];
+                    const senha = formatarDataBrasileira(values[3]);
+
+                    await db.collection('Alunos').doc(usuario).set({
+                        nomeCompleto: values[0],
+                        matricula: values[1],
+                        email: values[2],
+                        dataNascimento: values[3],
+                        whatsapp: values[4],
+                        usuario: values[1],
+                        senha: senha,
+                        status: 'pendente',
+                        admin: 'no',
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    mostrarModal('Cadastro Realizado', `Seu cadastro está pendente de aprovação.\nUsuário: ${values[1]}\nSenha: ${senha}`, 'pendente');
+                    formAluno.reset();
+                    mostrarTela('login-aluno');
+                } catch (error) {
+                    console.error('Erro no cadastro:', error);
+                }
+            });
+
+            document.getElementById('formLoginAluno').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const matricula = e.target.elements[0].value;
+                const senha = e.target.elements[1].value;
+
+                try {
+                    if (matricula === 'admin' && senha === 'admin') {
+                        mostrarModal('Sucesso', 'Login como administrador realizado com sucesso!', 'sucesso');
+                        mostrarTela('painel-admin');
+                        carregarUsuarios();
+                        carregarUsuariosChat();
+                        return;
+                    }
+
+                    const snapshot = await db.collection('Alunos')
+                        .where('usuario', '==', matricula)
+                        .where('senha', '==', senha)
+                        .get();
+
+                    if (snapshot.empty) {
+                        mostrarModal('Erro', 'Credenciais inválidas!', 'negado');
+                        return;
+                    }
+
+                    const aluno = snapshot.docs[0].data();
+                    const alunoId = snapshot.docs[0].id;
+
+                    if (aluno.status === 'pendente') {
+                        mostrarModal('Aviso', 'Seu cadastro está aguardando aprovação do administrador.', 'pendente');
+                        return;
+                    } else if (aluno.status === 'negado') {
+                        mostrarModal('Erro', 'Cadastro não aprovado! Contate o suporte.', 'negado');
+                        mostrarTela('login-aluno');
+                    } else {
+                        currentUserId = alunoId;
+                        if (aluno.admin === 'yes') {
+                            mostrarTela('painel-admin');
+                            carregarUsuarios();
+                            carregarUsuariosChat();
+                        } else {
+                            if (aluno.mensagemAdmin) {
+                                document.getElementById('mensagem-admin').classList.remove('hidden');
+                                document.getElementById('texto-mensagem').textContent = aluno.mensagemAdmin;
+                            }
+                            mostrarTela('area-aluno');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Erro no login:', error);
+                }
+            });
+
+            document.getElementById('formCadastroPaciente').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const elements = e.target.elements;
+                
+                const nome = elements[0].value.toLowerCase().replace(/\s+/g, '');
+                const dataNasc = elements[1].value;
+                const senha = formatarDataBrasileira(dataNasc);
+                const dataFormatada = dataNasc.split('-').reverse().join('');
+                const usuario = nome + dataFormatada;
+
+                try {
+                    await db.collection('Pacientes').doc(usuario).set({
+                        nomeCompleto: elements[0].value,
+                        dataNascimento: dataNasc,
+                        email: elements[2].value || '',
+                        cartaoSus: elements[3].value || '',
+                        whatsapp: elements[4].value,
+                        usuario,
+                        senha: senha,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    mostrarModal('Cadastro Realizado', `Cadastro realizado!\nUsuário: ${usuario}\nSenha: ${senha}`, 'sucesso');
+                    e.target.reset();
+                    mostrarTela('tela-modulos');
+                } catch (error) {
+                    console.error('Erro no cadastro:', error);
+                }
+            });
+
+            document.getElementById('formLoginPaciente').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const usuario = e.target.elements[0].value;
+                const senha = e.target.elements[1].value;
+
+                try {
+                    const snapshot = await db.collection('Pacientes')
+                        .where('usuario', '==', usuario)
+                        .where('senha', '==', senha)
+                        .get();
+
+                    if (snapshot.empty) {
+                        mostrarModal('Erro', 'Credenciais inválidas!', 'negado');
+                        return;
+                    }
+
+                    mostrarModal('Sucesso', 'Login realizado com sucesso!', 'sucesso');
+                    mostrarTela('tela-modulos');
+                } catch (error) {
+                    console.error('Erro no login:', error);
+                }
+            });
+
+            document.getElementById('overlay').addEventListener('click', fecharModal);
+        });
+    </script>
+</body>
+</html>
