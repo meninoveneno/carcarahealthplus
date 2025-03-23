@@ -1,490 +1,351 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Carcará Health +</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-  <style>
-    body {
-      font-family: 'Poppins', Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      background: linear-gradient(135deg, #8B0000, #450000);
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carcará Health +</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
-    .container {
-      background-color: rgba(26, 42, 74, 0.9);
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-      width: 90%;
-      max-width: 400px;
-      text-align: center;
-      position: relative;
-    }
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
 
-    h1 {
-      font-family: 'Poppins', sans-serif;
-      font-weight: 600;
-      color: #fff;
-      margin-bottom: 20px;
-      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-      animation: fadeIn 3s ease-in-out infinite;
-    }
+        body {
+            min-height: 100vh;
+            background: linear-gradient(45deg, #8B0000, #450000);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
 
-    @keyframes fadeIn {
-      0%, 100% { opacity: 0.8; transform: scale(1); }
-      50% { opacity: 1; transform: scale(1.05); }
-    }
+        .container {
+            background: rgba(26, 42, 74, 0.9);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            width: 90%;
+            max-width: 500px;
+            color: white;
+            position: relative;
+        }
 
-    .logo {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 50px;
-      height: auto;
-    }
+        .logo {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+        }
 
-    .input-group {
-      margin-bottom: 15px;
-      text-align: center;
-    }
+        h1 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-size: 1.8rem;
+            text-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
 
-    label {
-      display: block;
-      margin-bottom: 5px;
-      color: #fff;
-      text-align: left;
-    }
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
 
-    input[type="text"],
-    input[type="date"],
-    input[type="email"],
-    input[type="password"] {
-      width: 90%;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      background-color: #2c3e50;
-      color: #fff;
-      font-family: 'Poppins', sans-serif;
-      text-align: center;
-    }
+        button {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: #d32f2f;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
 
-    input[type="date"]::-webkit-calendar-picker-indicator {
-      display: none;
-    }
-    input[type="date"]::-webkit-inner-spin-button,
-    input[type="date"]::-webkit-outer-spin-button {
-      -webkit-appearance: none;
-    }
-    input[type="date"] {
-      -webkit-appearance: none;
-      -moz-appearance: textfield;
-      appearance: none;
-    }
+        button:hover:not(:disabled) {
+            background: #b71c1c;
+        }
 
-    .checkbox-group {
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      margin-bottom: 15px;
-    }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
 
-    input[type="checkbox"] {
-      margin-right: 10px;
-    }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            background: #2c3e50;
+            border: none;
+            border-radius: 5px;
+            color: white;
+        }
 
-    .checkbox-group label {
-      font-size: 0.9em;
-      margin-bottom: 0;
-      line-height: 1;
-    }
+        .hidden {
+            display: none;
+        }
 
-    button {
-      width: 90%;
-      padding: 10px;
-      background-color: #d32f2f;
-      color: #fff;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      font-family: 'Poppins', sans-serif;
-      font-weight: 600;
-    }
+        .back-btn {
+            background: #2c3e50;
+            margin-top: 1rem;
+        }
 
-    button:disabled {
-      background-color: #666;
-      cursor: not-allowed;
-    }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(26, 42, 74, 1);
+            padding: 2rem;
+            border-radius: 10px;
+            text-align: center;
+            z-index: 1000;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            color: white;
+        }
 
-    button:hover:not(:disabled) {
-      background-color: #b71c1c;
-      transform: translateY(-3px);
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-    }
-
-    #telaInicial button, #telaPacienteOpcoes button, #telaAlunoOpcoes button {
-      margin: 10px 0;
-    }
-
-    .btn-voltar {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      width: 30px;
-      height: 30px;
-      padding: 0;
-      background-color: #d32f2f;
-      font-size: 18px;
-      line-height: 30px;
-      text-align: center;
-    }
-
-    .screen {
-      display: none;
-    }
-    .screen.active {
-      display: block;
-    }
-  </style>
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
     <img src="https://icon-library.com/images/beta-version-icon/beta-version-icon-6.jpg" alt="Logo" class="logo">
 
-    <!-- Tela Inicial -->
-    <div id="telaInicial" class="screen active">
-      <h1>Carcará Health +</h1>
-      <button onclick="mostrarTela('telaPacienteOpcoes')">Sou paciente</button>
-      <button onclick="mostrarTela('telaAlunoOpcoes')">Sou aluno</button>
+    <!-- Modal -->
+    <div class="overlay" id="overlay"></div>
+    <div class="modal" id="modal">
+        <h3>Cadastro Realizado!</h3>
+        <p id="modal-content"></p>
+        <button onclick="fecharModal()">Fechar</button>
     </div>
 
-    <!-- Tela de Opções para Paciente -->
-    <div id="telaPacienteOpcoes" class="screen">
-      <button class="btn-voltar" onclick="mostrarTela('telaInicial')">↩</button>
-      <h1>Carcará Health +</h1>
-      <button onclick="mostrarTela('telaCadastroPaciente')">Cadastrar</button>
-      <button onclick="mostrarTela('telaLoginPaciente')">Login</button>
+    <!-- Telas -->
+    <div id="tela-inicial" class="container">
+        <h1>Bem-vindo ao Carcará Health +</h1>
+        <div class="btn-group">
+            <button onclick="mostrarTela('tela-opcoes-aluno')">Sou Aluno</button>
+            <button onclick="mostrarTela('tela-opcoes-paciente')">Sou Paciente</button>
+        </div>
     </div>
 
-    <!-- Tela de Cadastro (Paciente) -->
-    <div id="telaCadastroPaciente" class="screen">
-      <button class="btn-voltar" onclick="mostrarTela('telaPacienteOpcoes')">↩</button>
-      <h1>Carcará Health +</h1>
-      <form id="cadastroPacienteForm">
-        <div class="input-group">
-          <label for="nomeCompletoPaciente">Nome Completo*</label>
-          <input type="text" id="nomeCompletoPaciente" required>
+    <!-- Opções Aluno -->
+    <div id="tela-opcoes-aluno" class="container hidden">
+        <h1>Carcará Health +</h1>
+        <div class="btn-group">
+            <button onclick="mostrarTela('cadastro-aluno')">Cadastrar</button>
+            <button onclick="mostrarTela('login-aluno')">Login</button>
+            <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
         </div>
-        <div class="input-group">
-          <label for="dataNascimentoPaciente">Data de Nascimento*</label>
-          <input type="date" id="dataNascimentoPaciente" required>
-        </div>
-        <div class="input-group">
-          <label for="emailPaciente">Email</label>
-          <input type="email" id="emailPaciente">
-        </div>
-        <div class="input-group">
-          <label for="cartaoSus">Cartão SUS</label>
-          <input type="text" id="cartaoSus">
-        </div>
-        <div class="checkbox-group">
-          <input type="checkbox" id="termosPaciente">
-          <label for="termosPaciente">Confirmo que li e aceito os termos de uso*</label>
-        </div>
-        <button type="submit" id="cadastrarPacienteBtn">Cadastrar</button>
-      </form>
     </div>
 
-    <!-- Tela de Login (Paciente) -->
-    <div id="telaLoginPaciente" class="screen">
-      <button class="btn-voltar" onclick="mostrarTela('telaPacienteOpcoes')">↩</button>
-      <h1>Carcará Health +</h1>
-      <form id="loginPacienteForm">
-        <div class="input-group">
-          <label for="usuarioPaciente">Usuário*</label>
-          <input type="text" id="usuarioPaciente" required>
-        </div>
-        <div class="input-group">
-          <label for="senhaPaciente">Senha (Data de Nascimento)*</label>
-          <input type="date" id="senhaPaciente" required>
-        </div>
-        <button type="submit">Entrar</button>
-      </form>
+    <!-- Cadastro Aluno -->
+    <div id="cadastro-aluno" class="container hidden">
+        <h1>Cadastro de Aluno</h1>
+        <form id="formCadastroAluno">
+            <input type="text" placeholder="Nome Completo" required>
+            <input type="text" placeholder="Matrícula" required>
+            <input type="email" placeholder="Email" required>
+            <input type="date" required>
+            <button type="submit">Cadastrar</button>
+            <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-aluno')">Voltar</button>
+        </form>
     </div>
 
-    <!-- Tela de Opções para Aluno -->
-    <div id="telaAlunoOpcoes" class="screen">
-      <button class="btn-voltar" onclick="mostrarTela('telaInicial')">↩</button>
-      <h1>Carcará Health +</h1>
-      <button onclick="mostrarTela('telaLogin')">Login</button>
-      <button onclick="mostrarTela('telaCadastroAluno')">Cadastrar</button>
+    <!-- Login Aluno -->
+    <div id="login-aluno" class="container hidden">
+        <h1>Login Aluno</h1>
+        <form id="formLoginAluno">
+            <input type="text" placeholder="Matrícula" required>
+            <input type="password" placeholder="Data de Nascimento" required>
+            <button type="submit">Entrar</button>
+            <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-aluno')">Voltar</button>
+        </form>
     </div>
 
-    <!-- Tela de Login (Aluno) -->
-    <div id="telaLogin" class="screen">
-      <button class="btn-voltar" onclick="mostrarTela('telaAlunoOpcoes')">↩</button>
-      <h1>Carcará Health +</h1>
-      <form id="loginForm">
-        <div class="input-group">
-          <label for="usuario">Matrícula*</label>
-          <input type="text" id="usuario" required>
+    <!-- Opções Paciente -->
+    <div id="tela-opcoes-paciente" class="container hidden">
+        <h1>Carcará Health +</h1>
+        <div class="btn-group">
+            <button onclick="mostrarTela('cadastro-paciente')">Cadastrar</button>
+            <button onclick="mostrarTela('login-paciente')">Login</button>
+            <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
         </div>
-        <div class="input-group">
-          <label for="senha">Senha (Data de Nascimento)*</label>
-          <input type="date" id="senha" required>
-        </div>
-        <button type="submit">Entrar</button>
-      </form>
     </div>
 
-    <!-- Tela de Cadastro (Aluno) -->
-    <div id="telaCadastroAluno" class="screen">
-      <button class="btn-voltar" onclick="mostrarTela('telaAlunoOpcoes')">↩</button>
-      <h1>Carcará Health +</h1>
-      <form id="cadastroAlunoForm">
-        <div class="input-group">
-          <label for="nomeCompletoAluno">Nome Completo*</label>
-          <input type="text" id="nomeCompletoAluno" required>
-        </div>
-        <div class="input-group">
-          <label for="matricula">Matrícula*</label>
-          <input type="text" id="matricula" required>
-        </div>
-        <div class="input-group">
-          <label for="emailAluno">Email*</label>
-          <input type="email" id="emailAluno" required>
-        </div>
-        <div class="input-group">
-          <label for="dataNascimentoAluno">Data de Nascimento*</label>
-          <input type="date" id="dataNascimentoAluno" required>
-        </div>
-        <button type="submit" id="cadastrarAlunoBtn">Cadastrar</button>
-      </form>
+    <!-- Cadastro Paciente -->
+    <div id="cadastro-paciente" class="container hidden">
+        <h1>Cadastro de Paciente</h1>
+        <form id="formCadastroPaciente">
+            <input type="text" placeholder="Nome Completo" required>
+            <input type="date" required>
+            <input type="email" placeholder="Email (opcional)">
+            <input type="text" placeholder="Cartão SUS (opcional)">
+            <label style="margin: 10px 0; display: block;">
+                <input type="checkbox" required> Confirmo os termos de uso
+            </label>
+            <button type="submit">Cadastrar</button>
+            <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-paciente')">Voltar</button>
+        </form>
     </div>
-  </div>
 
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js"></script>
+    <!-- Login Paciente -->
+    <div id="login-paciente" class="container hidden">
+        <h1>Login Paciente</h1>
+        <form id="formLoginPaciente">
+            <input type="text" placeholder="Usuário" required>
+            <input type="password" placeholder="Data de Nascimento" required>
+            <button type="submit">Entrar</button>
+            <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-paciente')">Voltar</button>
+        </form>
+    </div>
 
-  <script>
-    // Configuração do Firebase
-    const firebaseConfig = {
-      apiKey: "AIzaSyBpyC5x-iLCOhMm4WKghTrq0HeaFq4QdVs",
-      authDomain: "carcarahealthplus.firebaseapp.com",
-      projectId: "carcarahealthplus",
-      storageBucket: "carcarahealthplus.firebasestorage.app",
-      messagingSenderId: "925586089066",
-      appId: "1:925586089066:web:2b0ccb1531627255f29613"
-    };
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyC6MCXqH2TXWzahesHtyk7JeB-gHshiWFc",
+            authDomain: "carcarahealthplus-4ef7b.firebaseapp.com",
+            projectId: "carcarahealthplus-4ef7b",
+            storageBucket: "carcarahealthplus-4ef7b.firebasestorage.app",
+            messagingSenderId: "149920030952",
+            appId: "1:149920030952:web:e19ea0ba0b0f400d18295d"
+        };
 
-    // Inicializar Firebase
-    try {
-      firebase.initializeApp(firebaseConfig);
-      console.log("Firebase inicializado com sucesso");
-    } catch (error) {
-      console.error("Erro ao inicializar Firebase: ", error);
-    }
-    const db = firebase.firestore();
-
-    // Função para mostrar a tela desejada
-    function mostrarTela(telaId) {
-      const telas = document.querySelectorAll('.screen');
-      telas.forEach(tela => tela.classList.remove('active'));
-      document.getElementById(telaId).classList.add('active');
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-      // Lógica para cadastro de paciente
-      const nomeInputPaciente = document.getElementById("nomeCompletoPaciente");
-      const dataInputPaciente = document.getElementById("dataNascimentoPaciente");
-      const termosCheckboxPaciente = document.getElementById("termosPaciente");
-      const cadastrarPacienteBtn = document.getElementById("cadastrarPacienteBtn");
-      const cadastroPacienteForm = document.getElementById("cadastroPacienteForm");
-      const emailPacienteInput = document.getElementById("emailPaciente");
-      const cartaoSusInput = document.getElementById("cartaoSus");
-
-      function validarFormularioCadastroPaciente() {
-        const nomeValido = nomeInputPaciente.value.trim().length > 0;
-        const dataValida = dataInputPaciente.value !== "";
-        const termosAceitos = termosCheckboxPaciente.checked;
-        cadastrarPacienteBtn.disabled = !(nomeValido && dataValida && termosAceitos);
-      }
-
-      nomeInputPaciente.addEventListener("input", validarFormularioCadastroPaciente);
-      dataInputPaciente.addEventListener("change", validarFormularioCadastroPaciente);
-      termosCheckboxPaciente.addEventListener("change", validarFormularioCadastroPaciente);
-      validarFormularioCadastroPaciente();
-
-      cadastroPacienteForm.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        if (!cadastrarPacienteBtn.disabled) {
-          const nomeCompleto = nomeInputPaciente.value.trim();
-          const [nome, ...sobrenomeArr] = nomeCompleto.split(" ");
-          const sobrenome = sobrenomeArr.join("");
-          const numeroAleatorio = Math.floor(1000 + Math.random() * 9000);
-          const usuario = `${nome}${sobrenome}${numeroAleatorio}`.toLowerCase();
-          const senha = dataInputPaciente.value;
-          const email = emailPacienteInput.value || "";
-          const cartaoSus = cartaoSusInput.value || "";
-
-          try {
-            await db.collection("Pacientes").doc(usuario).set({
-              nomeCompleto: nomeCompleto,
-              dataNascimento: senha,
-              email: email,
-              cartaoSus: cartaoSus,
-              usuario: usuario,
-              senha: senha,
-              timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            alert(`Cadastro realizado com sucesso!\nUsuário: ${usuario}\nSenha: ${senha}\nGuarde essas informações!`);
-            mostrarTela('telaPacienteOpcoes');
-            cadastroPacienteForm.reset();
-            validarFormularioCadastroPaciente();
-          } catch (error) {
-            console.error("Erro ao cadastrar paciente: ", error);
-            alert("Erro ao realizar cadastro. Verifique o console para mais detalhes.");
-          }
-        }
-      });
-
-      // Lógica para login de paciente
-      const loginPacienteForm = document.getElementById("loginPacienteForm");
-      const usuarioPacienteInput = document.getElementById("usuarioPaciente");
-      const senhaPacienteInput = document.getElementById("senhaPaciente");
-
-      loginPacienteForm.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const usuario = usuarioPacienteInput.value.trim().toLowerCase();
-        const senha = senhaPacienteInput.value;
-
+        let db;
         try {
-          const doc = await db.collection("Pacientes").doc(usuario).get();
-          if (doc.exists && doc.data().senha === senha) {
-            alert(`Login bem-sucedido! Bem-vindo, ${doc.data().nomeCompleto}!`);
-            mostrarTela('telaPacienteOpcoes');
-            loginPacienteForm.reset();
-          } else {
-            alert("Usuário ou senha incorretos!");
-          }
-        } catch (error) {
-          console.error("Erro ao fazer login: ", error);
-          alert("Erro ao fazer login. Tente novamente.");
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            console.log('Firebase inicializado');
+        } catch (e) {
+            alert('Erro ao carregar Firebase: ' + e.message);
         }
-      });
 
-      // Lógica para cadastro de aluno
-      const nomeAlunoInput = document.getElementById("nomeCompletoAluno");
-      const matriculaInput = document.getElementById("matricula");
-      const emailAlunoInput = document.getElementById("emailAluno");
-      const dataNascimentoAlunoInput = document.getElementById("dataNascimentoAluno");
-      const cadastrarAlunoBtn = document.getElementById("cadastrarAlunoBtn");
-      const cadastroAlunoForm = document.getElementById("cadastroAlunoForm");
+        function mostrarTela(idTela) {
+            document.querySelectorAll('.container').forEach(tela => tela.classList.add('hidden'));
+            document.getElementById(idTela).classList.remove('hidden');
+        }
 
-      function validarFormularioCadastroAluno() {
-        const nomeValido = nomeAlunoInput.value.trim().length > 0;
-        const matriculaValida = matriculaInput.value.trim().length > 0;
-        const emailValido = emailAlunoInput.value.trim().length > 0;
-        const dataValida = dataNascimentoAlunoInput.value !== "";
-        cadastrarAlunoBtn.disabled = !(nomeValido && matriculaValida && emailValido && dataValida);
-        console.log("Validação Aluno:", { nomeValido, matriculaValida, emailValido, dataValida });
-      }
+        function mostrarModal(conteudo) {
+            document.getElementById('modal-content').textContent = conteudo;
+            document.getElementById('modal').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+        }
 
-      nomeAlunoInput.addEventListener("input", validarFormularioCadastroAluno);
-      matriculaInput.addEventListener("input", validarFormularioCadastroAluno);
-      emailAlunoInput.addEventListener("input", validarFormularioCadastroAluno);
-      dataNascimentoAlunoInput.addEventListener("change", validarFormularioCadastroAluno);
-      validarFormularioCadastroAluno();
+        function fecharModal() {
+            document.getElementById('modal').style.display = 'none';
+            document.getElementById('overlay').style.display = 'none';
+        }
 
-      cadastroAlunoForm.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        console.log("Formulário de aluno enviado");
+        document.addEventListener('DOMContentLoaded', () => {
+            // Cadastro Aluno
+            const formAluno = document.getElementById('formCadastroAluno');
 
-        if (!cadastrarAlunoBtn.disabled) {
-          const nomeCompleto = nomeAlunoInput.value.trim();
-          const [nome, ...sobrenomeArr] = nomeCompleto.split(" ");
-          const sobrenome = sobrenomeArr.join("");
-          const matricula = matriculaInput.value.trim();
-          const email = emailAlunoInput.value.trim();
-          const dataNascimento = dataNascimentoAlunoInput.value;
-          const usuario = `${nome}${sobrenome}${matricula}`.toLowerCase();
+            formAluno.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const values = Array.from(formAluno.elements)
+                    .filter(el => el.tagName === 'INPUT')
+                    .map(el => el.value);
 
-          console.log("Dados a serem salvos na coleção 'Alunos':", { nomeCompleto, matricula, email, dataNascimento, usuario });
-
-          try {
-            // Salvar na coleção "Alunos" no Firestore
-            await db.collection("Alunos").doc(usuario).set({
-              nomeCompleto: nomeCompleto,
-              matricula: matricula,
-              email: email,
-              dataNascimento: dataNascimento,
-              usuario: matricula,
-              senha: dataNascimento,
-              approved: "No",
-              timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                try {
+                    const usuario = values[0].replace(/\s+/g, '').toLowerCase() + values[1];
+                    await db.collection('Alunos').add({
+                        nomeCompleto: values[0],
+                        matricula: values[1],
+                        email: values[2],
+                        dataNascimento: values[3],
+                        usuario: values[1],
+                        senha: values[3],
+                        approved: 'No',
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    mostrarModal(`Solicitação de registro feita!\nUsuário: ${values[1]}\nSenha: ${values[3]}\nGuarde essas informações!`);
+                    formAluno.reset();
+                } catch (error) {
+                    console.error('Erro no cadastro:', error);
+                }
             });
-            console.log("Dados salvos na coleção 'Alunos' com sucesso");
 
-            // Exibir pop-up após salvar
-            alert(`Solicitação de registro de aluno feita!\nO seu usuário é: ${matricula}\nSua senha é: ${dataNascimento}\nGuarde essas informações!`);
+            // Cadastro Paciente
+            document.getElementById('formCadastroPaciente').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const elements = e.target.elements;
+                const nomeCompleto = elements[0].value;
+                const dataNascimento = elements[1].value;
+                
+                // Gera usuário: nome+sobrenome+dataNascimento (DDMMYYYY)
+                const nomeFormatado = nomeCompleto.replace(/\s+/g, '').toLowerCase();
+                const dataFormatada = dataNascimento.split('-').reverse().join('');
+                const usuario = nomeFormatado + dataFormatada;
 
-            // Voltar à tela inicial após fechar o pop-up
-            mostrarTela('telaInicial');
-            cadastroAlunoForm.reset();
-            validarFormularioCadastroAluno();
-          } catch (error) {
-            console.error("Erro ao salvar na coleção 'Alunos': ", error);
-            alert("Erro ao realizar cadastro. Verifique o console para mais detalhes.");
-          }
-        } else {
-          console.log("Botão desabilitado. Campos obrigatórios não preenchidos.");
-        }
-      });
+                try {
+                    await db.collection('Pacientes').add({
+                        nomeCompleto,
+                        dataNascimento,
+                        email: elements[2].value,
+                        cartaoSus: elements[3].value,
+                        usuario,
+                        senha: dataNascimento,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    mostrarModal(`Cadastro realizado!\nUsuário: ${usuario}\nSenha: ${dataNascimento}`);
+                    e.target.reset();
+                } catch (error) {
+                    console.error('Erro no cadastro:', error);
+                }
+            });
 
-      // Lógica para login de aluno
-      const loginForm = document.getElementById("loginForm");
-      const usuarioInput = document.getElementById("usuario");
-      const senhaInput = document.getElementById("senha");
+            // Logins
+            document.getElementById('formLoginAluno').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const [matricula, senha] = Array.from(e.target.elements).map(el => el.value);
 
-      loginForm.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const matricula = usuarioInput.value.trim();
-        const senha = senhaInput.value;
+                const snapshot = await db.collection('Alunos')
+                    .where('usuario', '==', matricula)
+                    .where('senha', '==', senha)
+                    .get();
 
-        try {
-          const querySnapshot = await db.collection("Alunos")
-            .where("matricula", "==", matricula)
-            .where("senha", "==", senha)
-            .get();
+                if (snapshot.empty || snapshot.docs[0].data().approved !== 'Yes') {
+                    alert('Credenciais inválidas ou conta não aprovada');
+                    return;
+                }
+                mostrarModal('Login bem-sucedido!');
+            });
 
-          if (!querySnapshot.empty) {
-            const alunoDoc = querySnapshot.docs[0];
-            const alunoData = alunoDoc.data();
-            if (alunoData.approved === "Yes") {
-              alert(`Login bem-sucedido! Bem-vindo, ${alunoData.nomeCompleto}!`);
-              mostrarTela('telaAlunoOpcoes');
-              loginForm.reset();
-            } else {
-              alert("Seu cadastro ainda não foi aprovado!");
-            }
-          } else {
-            alert("Matrícula ou senha incorretos!");
-          }
-        } catch (error) {
-          console.error("Erro ao fazer login: ", error);
-          alert("Erro ao fazer login. Tente novamente.");
-        }
-      });
-    });
-  </script>
+            document.getElementById('formLoginPaciente').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const [usuario, senha] = Array.from(e.target.elements).map(el => el.value);
+
+                const snapshot = await db.collection('Pacientes')
+                    .where('usuario', '==', usuario)
+                    .where('senha', '==', senha)
+                    .get();
+
+                if (snapshot.empty) {
+                    alert('Credenciais inválidas');
+                    return;
+                }
+                mostrarModal('Login bem-sucedido!');
+            });
+
+            document.getElementById('overlay').addEventListener('click', fecharModal);
+        });
+    </script>
 </body>
 </html>
