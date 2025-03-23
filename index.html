@@ -188,6 +188,9 @@
             padding: 10px;
             border-radius: 5px;
             margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .edit-form {
@@ -260,7 +263,7 @@
         <div class="btn-group">
             <button onclick="mostrarTela('modulo1')">Módulo 1</button>
             <button onclick="mostrarTela('modulo2')">Módulo 2</button>
-            <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
+            <button class="back-btn" onclick="sairAreaAluno()">Sair</button>
         </div>
     </div>
 
@@ -370,6 +373,8 @@
         };
 
         let db, auth;
+        let currentUserId = null;
+
         try {
             firebase.initializeApp(firebaseConfig);
             db = firebase.firestore();
@@ -414,16 +419,15 @@
             document.getElementById(`aba-${aba}`).classList.remove('hidden');
         }
 
-        // Função para verificar status online
-        function atualizarStatusOnline() {
-            auth.onAuthStateChanged(user => {
-                if (user) {
-                    db.collection('Alunos').doc(user.uid).update({
-                        online: true,
-                        lastOnline: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                }
-            });
+        // Função para sair da área do aluno e definir offline
+        function sairAreaAluno() {
+            if (currentUserId) {
+                db.collection('Alunos').doc(currentUserId).update({
+                    online: false,
+                    lastOnline: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+            mostrarTela('tela-inicial');
         }
 
         // Função para carregar usuários em tempo real
@@ -455,11 +459,11 @@
                     const isAdmin = usuario.admin === 'yes';
                     const isOnline = usuario.online || false;
                     div.innerHTML = `
-                        <p>
+                        <div>
                             ${isOnline ? '<span class="online-indicator"></span>' : '<span class="offline-indicator"></span>'}
                             <strong>${usuario.nomeCompleto}</strong> (${usuario.usuario})
                             ${isAdmin ? '<span class="badge-admin">Admin</span>' : ''}
-                        </p>
+                        </div>
                         <button onclick="editarUsuario('${usuario.id}')">Editar</button>
                     `;
                     lista.appendChild(div);
@@ -487,9 +491,13 @@
                     const div = document.createElement('div');
                     div.className = 'user-item';
                     div.innerHTML = `
-                        <p><strong>${aluno.nomeCompleto}</strong> (${aluno.usuario})</p>
-                        <button onclick="aprovarUsuario('${aluno.id}')">Aprovar</button>
-                        <button onclick="negarUsuario('${aluno.id}')">Negar</button>
+                        <div>
+                            <strong>${aluno.nomeCompleto}</strong> (${aluno.usuario})
+                        </div>
+                        <div>
+                            <button onclick="aprovarUsuario('${aluno.id}')">Aprovar</button>
+                            <button onclick="negarUsuario('${aluno.id}')">Negar</button>
+                        </div>
                     `;
                     lista.appendChild(div);
                 });
@@ -516,10 +524,10 @@
                     const div = document.createElement('div');
                     div.className = 'user-item';
                     div.innerHTML = `
-                        <p>
+                        <div>
                             <strong>${aluno.nomeCompleto}</strong> (${aluno.usuario})<br>
                             Negado por: ${aluno.negadoPor || 'Desconhecido'} - Motivo: ${aluno.motivoNegacao || 'Não especificado'}
-                        </p>
+                        </div>
                         <button onclick="aprovarUsuario('${aluno.id}')">Aprovar</button>
                     `;
                     lista.appendChild(div);
@@ -697,7 +705,6 @@
                         carregarUsuariosPendentes();
                         carregarUsuariosNegados();
                         carregarUsuariosChat();
-                        atualizarStatusOnline();
                         return;
                     }
 
@@ -715,12 +722,13 @@
                     const alunoId = snapshot.docs[0].id;
 
                     if (aluno.status === 'pendente') {
-                        mostrarModal('Aviso', 'Seu cadastro está aguardando aprovação', 'pendente');
-                        mostrarTela('login-aluno');
+                        mostrarModal('Aviso', 'Seu cadastro está aguardando aprovação do administrador.', 'pendente');
+                        return;
                     } else if (aluno.status === 'negado') {
                         mostrarModal('Erro', 'Cadastro não aprovado! Contate o suporte.', 'negado');
                         mostrarTela('login-aluno');
                     } else {
+                        currentUserId = alunoId;
                         await db.collection('Alunos').doc(alunoId).update({ online: true });
                         if (aluno.admin === 'yes') {
                             mostrarTela('painel-admin');
@@ -728,7 +736,6 @@
                             carregarUsuariosPendentes();
                             carregarUsuariosNegados();
                             carregarUsuariosChat();
-                            atualizarStatusOnline();
                         } else {
                             if (aluno.mensagemAdmin) {
                                 document.getElementById('mensagem-admin').classList.remove('hidden');
@@ -801,8 +808,8 @@
 
             // Atualizar status offline ao fechar a janela
             window.addEventListener('beforeunload', () => {
-                if (auth.currentUser) {
-                    db.collection('Alunos').doc(auth.currentUser.uid).update({
+                if (currentUserId) {
+                    db.collection('Alunos').doc(currentUserId).update({
                         online: false,
                         lastOnline: firebase.firestore.FieldValue.serverTimestamp()
                     });
