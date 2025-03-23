@@ -198,6 +198,15 @@
             flex-direction: column;
             gap: 10px;
         }
+
+        .chat-messages {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+            padding: 10px;
+            background: #1a2a4a;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
@@ -354,7 +363,7 @@
             <select id="chat-usuario" onchange="carregarMensagens(this.value)">
                 <option value="">Selecione um usuário</option>
             </select>
-            <div id="mensagens-chat"></div>
+            <div class="chat-messages" id="mensagens-chat"></div>
             <input type="text" id="mensagem-chat" placeholder="Digite sua mensagem...">
             <button onclick="enviarMensagemChat()">Enviar</button>
         </div>
@@ -430,7 +439,7 @@
             mostrarTela('tela-inicial');
         }
 
-        // Função para carregar usuários em tempo real (apenas aprovados)
+        // Função para carregar usuários aprovados em tempo real
         function carregarUsuarios() {
             const lista = document.getElementById('lista-usuarios');
             const search = document.getElementById('search-usuarios');
@@ -619,13 +628,17 @@
             });
         }
 
-        // Função para carregar mensagens do chat
+        // Função para carregar mensagens do chat em tempo real
         function carregarMensagens(usuarioId) {
-            if (!usuarioId) return;
+            if (!usuarioId) {
+                document.getElementById('mensagens-chat').innerHTML = '';
+                return;
+            }
             const mensagens = document.getElementById('mensagens-chat');
             mensagens.innerHTML = '';
 
-            db.collection('Chat').where('usuarioId', '==', usuarioId)
+            db.collection('Chat')
+                .where('usuarioId', '==', usuarioId)
                 .orderBy('timestamp')
                 .onSnapshot(snapshot => {
                     mensagens.innerHTML = '';
@@ -635,24 +648,28 @@
                         div.textContent = `${mensagem.remetente}: ${mensagem.texto}`;
                         mensagens.appendChild(div);
                     });
+                    mensagens.scrollTop = mensagens.scrollHeight; // Rolagem automática para a última mensagem
                 });
         }
 
         // Função para enviar mensagem no chat
         async function enviarMensagemChat() {
-            const mensagem = document.getElementById('mensagem-chat').value;
+            const mensagem = document.getElementById('mensagem-chat').value.trim();
             const usuarioId = document.getElementById('chat-usuario').value;
 
             if (!usuarioId || !mensagem) return;
 
-            await db.collection('Chat').add({
-                usuarioId,
-                remetente: 'Administrador',
-                texto: mensagem,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-            document.getElementById('mensagem-chat').value = '';
+            try {
+                await db.collection('Chat').add({
+                    usuarioId,
+                    remetente: 'Administrador',
+                    texto: mensagem,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                document.getElementById('mensagem-chat').value = '';
+            } catch (error) {
+                console.error('Erro ao enviar mensagem:', error);
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -701,10 +718,6 @@
                     if (matricula === 'admin' && senha === 'admin') {
                         mostrarModal('Sucesso', 'Login como administrador realizado com sucesso!', 'sucesso');
                         mostrarTela('painel-admin');
-                        carregarUsuarios();
-                        carregarUsuariosPendentes();
-                        carregarUsuariosNegados();
-                        carregarUsuariosChat();
                         return;
                     }
 
@@ -732,10 +745,6 @@
                         await db.collection('Alunos').doc(alunoId).update({ online: true });
                         if (aluno.admin === 'yes') {
                             mostrarTela('painel-admin');
-                            carregarUsuarios();
-                            carregarUsuariosPendentes();
-                            carregarUsuariosNegados();
-                            carregarUsuariosChat();
                         } else {
                             if (aluno.mensagemAdmin) {
                                 document.getElementById('mensagem-admin').classList.remove('hidden');
