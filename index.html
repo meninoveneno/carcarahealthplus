@@ -76,14 +76,6 @@
             background: #4caf50;
         }
 
-        button.registros-btn {
-            background: #2196f3; /* Cor azul para o botão Registros */
-        }
-
-        button.registros-btn:hover {
-            background: #1976d2;
-        }
-
         input, select, textarea {
             width: 100%;
             padding: 8px;
@@ -402,16 +394,21 @@
     <!-- Painel do Administrador -->
     <div id="painel-admin" class="container hidden">
         <h1>Painel do Administrador</h1>
-        <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
-            <button id="broadcast-btn" class="broadcast-btn" onclick="abrirFormularioBroadcast()">📢 Enviar Mensagem</button>
-            <button onclick="abrirFormularioBroadcast()">Enviar Mensagem</button>
-        </div>
+        <button id="broadcast-btn" class="broadcast-btn" onclick="abrirFormularioBroadcast()">📢 Enviar Mensagem</button>
         <div class="abas">
+            <button onclick="mostrarAba('usuarios'); carregarUsuarios();">Usuários</button>
             <button onclick="mostrarAba('pacientes'); carregarPacientesAdmin();">Pacientes</button>
         </div>
 
+        <!-- Aba Usuários -->
+        <div id="aba-usuarios" class="aba visible">
+            <h2>Usuários</h2>
+            <input type="text" class="search-bar" id="search-usuarios" placeholder="Pesquisar usuários...">
+            <div id="lista-usuarios"></div>
+        </div>
+
         <!-- Aba Pacientes -->
-        <div id="aba-pacientes" class="aba visible">
+        <div id="aba-pacientes" class="aba hidden">
             <h2>Pacientes</h2>
             <div class="patient-list" id="lista-pacientes-admin"></div>
         </div>
@@ -432,6 +429,7 @@
         let db, auth;
         let currentUserId = null;
         let pacientesListener = null;
+        let usuariosListener = null;
         let currentPacienteId = null;
         let modulosListener = null;
 
@@ -505,6 +503,53 @@
             mostrarTela('tela-inicial');
         }
 
+        function carregarUsuarios() {
+            if (usuariosListener) usuariosListener();
+            const lista = document.getElementById('lista-usuarios');
+            const search = document.getElementById('search-usuarios');
+
+            usuariosListener = db.collection('Alunos').onSnapshot(snapshot => {
+                lista.innerHTML = '';
+                const usuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                const filteredUsuarios = usuarios.filter(u => 
+                    u.nomeCompleto.toLowerCase().includes(search.value.toLowerCase()) ||
+                    u.usuario.toLowerCase().includes(search.value.toLowerCase())
+                );
+
+                filteredUsuarios.sort((a, b) => {
+                    const aIsAdmin = a.admin === 'yes';
+                    const bIsAdmin = b.admin === 'yes';
+                    if (aIsAdmin !== bIsAdmin) return bIsAdmin - aIsAdmin;
+                    return a.nomeCompleto.localeCompare(b.nomeCompleto);
+                });
+
+                filteredUsuarios.forEach(usuario => {
+                    const div = document.createElement('div');
+                    div.className = 'user-item';
+                    const isAdmin = usuario.admin === 'yes';
+                    let statusClass;
+                    switch (usuario.status) {
+                        case 'aprovado': statusClass = 'approved'; break;
+                        case 'pendente': statusClass = 'pending'; break;
+                        case 'negado': statusClass = 'denied'; break;
+                    }
+                    div.innerHTML = `
+                        <div>
+                            <span class="status-indicator ${statusClass}"></span>
+                            <strong>${usuario.nomeCompleto}</strong> (${usuario.usuario})
+                            ${isAdmin ? '<span class="badge-admin">Admin</span>' : ''}
+                        </div>
+                        <button onclick="editarUsuario('${usuario.id}')">Editar</button>
+                    `;
+                    lista.appendChild(div);
+                });
+            });
+
+            search.removeEventListener('input', carregarUsuarios);
+            search.addEventListener('input', carregarUsuarios);
+        }
+
         function carregarPacientesAdmin() {
             const lista = document.getElementById('lista-pacientes-admin');
             if (pacientesListener) pacientesListener();
@@ -566,7 +611,7 @@
                             <button class="module-btn ${modulosAtivos.includes('medicacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'medicacoes', this)">Medicações</button>
                             <button class="module-btn ${modulosAtivos.includes('modulo4') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'modulo4', this)">Módulo 4</button>
                             <button class="profile-btn" onclick="verPerfilPaciente('${paciente.id}')">👤</button>
-                            <button class="registros-btn" onclick="verRegistrosPaciente('${paciente.id}')">Registros</button>
+                            <button onclick="verRegistrosPaciente('${paciente.id}')">Registros</button>
                         </div>
                     `;
                     lista.appendChild(div);
@@ -862,6 +907,71 @@
             mostrarModal('Perfil do Paciente', form, 'sucesso');
         }
 
+        async function editarUsuario(id) {
+            const doc = await db.collection('Alunos').doc(id).get();
+            const usuario = doc.data();
+
+            const form = document.createElement('form');
+            form.className = 'edit-form';
+            form.innerHTML = `
+                <input type="text" name="nomeCompleto" value="${usuario.nomeCompleto}" placeholder="Nome Completo" required>
+                <input type="text" name="matricula" value="${usuario.matricula}" placeholder="Matrícula" required>
+                <input type="email" name="email" value="${usuario.email}" placeholder="Email" required>
+                <input type="date" name="dataNascimento" value="${usuario.dataNascimento}" required>
+                <input type="text" name="whatsapp" value="${usuario.whatsapp}" placeholder="WhatsApp" required>
+                <input type="text" name="senha" value="${usuario.senha}" placeholder="Senha" required>
+                <select name="admin">
+                    <option value="no" ${usuario.admin !== 'yes' ? 'selected' : ''}>Usuário Comum</option>
+                    <option value="yes" ${usuario.admin === 'yes' ? 'selected' : ''}>Administrador</option>
+                </select>
+                <select name="status">
+                    <option value="aprovado" ${usuario.status === 'aprovado' ? 'selected' : ''}>Aprovado</option>
+                    <option value="pendente" ${usuario.status === 'pendente' ? 'selected' : ''}>Pendente</option>
+                    <option value="negado" ${usuario.status === 'negado' ? 'selected' : ''}>Negado</option>
+                </select>
+                <textarea name="motivoNegacao" placeholder="Motivo da negação">${usuario.motivoNegacao || ''}</textarea>
+                <button type="submit">Salvar</button>
+                <button type="button" onclick="excluirUsuario('${id}')">Excluir</button>
+            `;
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const data = {
+                    nomeCompleto: form.nomeCompleto.value,
+                    matricula: form.matricula.value,
+                    email: form.email.value,
+                    dataNascimento: form.dataNascimento.value,
+                    whatsapp: form.whatsapp.value,
+                    senha: form.senha.value,
+                    admin: form.admin.value,
+                    status: form.status.value,
+                    motivoNegacao: form.status.value === 'negado' ? form.motivoNegacao.value : ''
+                };
+
+                if (form.status.value === 'negado' && !form.motivoNegacao.value) {
+                    alert('O motivo da negação é obrigatório ao negar um usuário.');
+                    return;
+                }
+
+                try {
+                    await db.collection('Alunos').doc(id).update(data);
+                    fecharModal();
+                } catch (error) {
+                    console.error('Erro ao atualizar usuário:', error);
+                    alert('Erro ao salvar as alterações: ' + error.message);
+                }
+            });
+
+            mostrarModal('Editar Usuário', form, 'sucesso');
+        }
+
+        async function excluirUsuario(id) {
+            if (confirm('Deseja realmente excluir este usuário?')) {
+                await db.collection('Alunos').doc(id).delete();
+                fecharModal();
+            }
+        }
+
         async function editarPaciente(id) {
             const doc = await db.collection('Pacientes').doc(id).get();
             const paciente = doc.data();
@@ -1027,7 +1137,7 @@
                         currentUserId = 'admin';
                         mostrarModal('Sucesso', 'Login como administrador realizado com sucesso!', 'sucesso');
                         mostrarTela('painel-admin');
-                        carregarPacientesAdmin();
+                        carregarUsuarios();
                         return;
                     }
 
@@ -1054,7 +1164,7 @@
                         currentUserId = alunoId;
                         if (aluno.admin === 'yes') {
                             mostrarTela('painel-admin');
-                            carregarPacientesAdmin();
+                            carregarUsuarios();
                         } else {
                             if (aluno.mensagemAdmin) {
                                 document.getElementById('mensagem-admin').classList.remove('hidden');
