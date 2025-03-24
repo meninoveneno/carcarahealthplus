@@ -279,12 +279,6 @@
             background: #4caf50;
         }
 
-        .history-list {
-            max-height: 200px;
-            overflow-y: auto;
-            margin-top: 10px;
-        }
-
         .toggle-btn {
             position: relative;
             width: 60px;
@@ -747,10 +741,10 @@
             };
             try {
                 const docRef = await db.collection('RegistrosPAeGlicemia').add(data);
-                localStorage.setItem(`pa_${pacienteId}_${docRef.id}`, JSON.stringify(data));
                 document.getElementById(`pa_${pacienteId}`).value = '';
                 document.getElementById(`glicemia_${pacienteId}`).value = '';
                 carregarListaPA(pacienteId);
+                alert('Aferição salva com sucesso!');
             } catch (error) {
                 console.error('Erro ao salvar:', error);
                 alert('Erro ao salvar a aferição.');
@@ -775,33 +769,11 @@
                 `;
                 list.appendChild(item);
             });
-
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key.startsWith(`pa_${pacienteId}_`)) {
-                    const data = JSON.parse(localStorage.getItem(key));
-                    const item = document.createElement('div');
-                    item.className = 'record-item';
-                    item.innerHTML = `
-                        <span>Aferição: P.A ${data.pa}, Glicemia: ${data.glicemia} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
-                        <button class="delete-btn" onclick="apagarAfericaoLocal('${key}', '${pacienteId}')">Apagar</button>
-                    `;
-                    list.appendChild(item);
-                }
-            }
         }
 
         async function apagarAfericao(afericaoId, pacienteId) {
             if (confirm('Deseja apagar esta aferição?')) {
                 await db.collection('RegistrosPAeGlicemia').doc(afericaoId).delete();
-                localStorage.removeItem(`pa_${pacienteId}_${afericaoId}`);
-                carregarListaPA(pacienteId);
-            }
-        }
-
-        function apagarAfericaoLocal(key, pacienteId) {
-            if (confirm('Deseja apagar esta aferição?')) {
-                localStorage.removeItem(key);
                 carregarListaPA(pacienteId);
             }
         }
@@ -819,10 +791,10 @@
                 data: new Date().toISOString()
             };
             try {
-                const docRef = await db.collection('AnotacoesMedicas').add(data);
-                localStorage.setItem(`anotacao_${pacienteId}_${docRef.id}`, JSON.stringify(data));
+                await db.collection('AnotacoesMedicas').add(data);
                 document.getElementById(`anotacoes_${pacienteId}`).value = '';
                 carregarListaAnotacoes(pacienteId);
+                alert('Anotação salva com sucesso!');
             } catch (error) {
                 console.error('Erro ao salvar:', error);
                 alert('Erro ao salvar a anotação.');
@@ -847,33 +819,11 @@
                 `;
                 list.appendChild(item);
             });
-
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key.startsWith(`anotacao_${pacienteId}_`)) {
-                    const data = JSON.parse(localStorage.getItem(key));
-                    const item = document.createElement('div');
-                    item.className = 'record-item';
-                    item.innerHTML = `
-                        <span>Anotação: ${data.anotacoes} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
-                        <button class="delete-btn" onclick="apagarAnotacaoLocal('${key}', '${pacienteId}')">Apagar</button>
-                    `;
-                    list.appendChild(item);
-                }
-            }
         }
 
         async function apagarAnotacao(anotacaoId, pacienteId) {
             if (confirm('Deseja apagar esta anotação?')) {
                 await db.collection('AnotacoesMedicas').doc(anotacaoId).delete();
-                localStorage.removeItem(`anotacao_${pacienteId}_${anotacaoId}`);
-                carregarListaAnotacoes(pacienteId);
-            }
-        }
-
-        function apagarAnotacaoLocal(key, pacienteId) {
-            if (confirm('Deseja apagar esta anotação?')) {
-                localStorage.removeItem(key);
                 carregarListaAnotacoes(pacienteId);
             }
         }
@@ -918,9 +868,9 @@
                 data: new Date().toISOString()
             };
             try {
-                const docRef = await db.collection('Medicacoes').add(data);
-                localStorage.setItem(`medicacao_${pacienteId}_${docRef.id}`, JSON.stringify(data));
+                await db.collection('Medicacoes').add(data);
                 carregarListaMedicacoes(pacienteId);
+                alert('Medicações salvas com sucesso!');
             } catch (error) {
                 console.error('Erro ao salvar:', error);
                 alert('Erro ao salvar as medicações.');
@@ -945,89 +895,88 @@
                 `;
                 list.appendChild(item);
             });
-
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key.startsWith(`medicacao_${pacienteId}_`)) {
-                    const data = JSON.parse(localStorage.getItem(key));
-                    const item = document.createElement('div');
-                    item.className = 'record-item';
-                    item.innerHTML = `
-                        <span>Medicação: ${data.medicacoes.map(m => `${m.nome} (${m.dosagem}, ${m.posologia})`).join(', ')} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
-                        <button class="delete-btn" onclick="apagarMedicacaoLocal('${key}', '${pacienteId}')">Apagar</button>
-                    `;
-                    list.appendChild(item);
-                }
-            }
         }
 
         async function apagarMedicacao(medicacaoId, pacienteId) {
             if (confirm('Deseja apagar esta medicação?')) {
                 await db.collection('Medicacoes').doc(medicacaoId).delete();
-                localStorage.removeItem(`medicacao_${pacienteId}_${medicacaoId}`);
-                carregarListaMedicacoes(pacienteId);
-            }
-        }
-
-        function apagarMedicacaoLocal(key, pacienteId) {
-            if (confirm('Deseja apagar esta medicação?')) {
-                localStorage.removeItem(key);
                 carregarListaMedicacoes(pacienteId);
             }
         }
 
         async function verRegistrosPaciente(pacienteId) {
-            const form = document.createElement('div');
-            form.className = 'edit-form';
-            
-            const [paSnap, anotSnap, medSnap] = await Promise.all([
-                db.collection('RegistrosPAeGlicemia').where('pacienteId', '==', pacienteId).orderBy('timestamp', 'desc').limit(1).get(),
-                db.collection('AnotacoesMedicas').where('pacienteId', '==', pacienteId).orderBy('timestamp', 'desc').limit(1).get(),
-                db.collection('Medicacoes').where('pacienteId', '==', pacienteId).orderBy('timestamp', 'desc').limit(1).get()
-            ]);
+            const pacienteDoc = await db.collection('Pacientes').doc(pacienteId).get();
+            const pacienteNome = pacienteDoc.data().nomeCompleto;
 
-            const paData = !paSnap.empty ? paSnap.docs[0].data() : null;
-            const anotData = !anotSnap.empty ? anotSnap.docs[0].data() : null;
-            const medData = !medSnap.empty ? medSnap.docs[0].data() : null;
-
-            form.innerHTML = `
-                <h4>P.A. e Glicemia</h4>
-                <input type="text" value="${paData ? paData.pa : 'Nenhum dado'}" readonly>
-                <input type="text" value="${paData ? paData.glicemia + ' mg/dL' : 'Nenhum dado'}" readonly>
-                <h4>Anotações Médicas</h4>
-                <textarea class="editable" id="anotacoes-edit">${anotData ? anotData.anotacoes : ''}</textarea>
-                <h4>Medicações</h4>
-                <textarea readonly>${medData ? medData.medicacoes.map(m => `${m.nome} (${m.dosagem}, ${m.posologia})`).join('\n') : 'Nenhum dado'}</textarea>
-                <button onclick="salvarAnotacoesEditadas('${pacienteId}', '${anotSnap.empty ? '' : anotSnap.docs[0].id}')">Salvar Anotações</button>
+            const registrosDiv = document.createElement('div');
+            registrosDiv.innerHTML = `
+                <h3>Registros de ${pacienteNome}</h3>
+                <div id="registros-pa"></div>
+                <div id="registros-anotacoes"></div>
+                <div id="registros-medicacoes"></div>
             `;
 
-            mostrarModal('Dados do Paciente', form, 'sucesso');
-        }
+            // Carregar P.A. e Glicemia
+            const paSnapshot = await db.collection('RegistrosPAeGlicemia')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            const paList = registrosDiv.querySelector('#registros-pa');
+            paList.innerHTML = '<h4>P.A. e Glicemia</h4>';
+            if (paSnapshot.empty) {
+                paList.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                paSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    paList.innerHTML += `
+                        <div class="record-item">
+                            <span>P.A: ${data.pa}, Glicemia: ${data.glicemia} mg/dL - ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                        </div>
+                    `;
+                });
+            }
 
-        async function salvarAnotacoesEditadas(pacienteId, anotacaoId) {
-            const anotacoes = document.getElementById('anotacoes-edit').value;
-            if (!anotacoes) {
-                alert('Digite uma anotação!');
-                return;
+            // Carregar Anotações
+            const anotSnapshot = await db.collection('AnotacoesMedicas')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            const anotList = registrosDiv.querySelector('#registros-anotacoes');
+            anotList.innerHTML = '<h4>Anotações Médicas</h4>';
+            if (anotSnapshot.empty) {
+                anotList.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                anotSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    anotList.innerHTML += `
+                        <div class="record-item">
+                            <span>${data.anotacoes} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                        </div>
+                    `;
+                });
             }
-            const data = {
-                anotacoes,
-                pacienteId,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                data: new Date().toISOString()
-            };
-            try {
-                if (anotacaoId) {
-                    await db.collection('AnotacoesMedicas').doc(anotacaoId).update(data);
-                } else {
-                    const docRef = await db.collection('AnotacoesMedicas').add(data);
-                    localStorage.setItem(`anotacao_${pacienteId}_${docRef.id}`, JSON.stringify(data));
-                }
-                mostrarModal('Sucesso', 'Anotação salva com sucesso!', 'sucesso');
-            } catch (error) {
-                console.error('Erro ao salvar:', error);
-                alert('Erro ao salvar a anotação.');
+
+            // Carregar Medicações
+            const medSnapshot = await db.collection('Medicacoes')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            const medList = registrosDiv.querySelector('#registros-medicacoes');
+            medList.innerHTML = '<h4>Medicações</h4>';
+            if (medSnapshot.empty) {
+                medList.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                medSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    medList.innerHTML += `
+                        <div class="record-item">
+                            <span>${data.medicacoes.map(m => `${m.nome} (${m.dosagem}, ${m.posologia})`).join(', ')} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                        </div>
+                    `;
+                });
             }
+
+            mostrarModal(`Registros de ${pacienteNome}`, registrosDiv, 'sucesso');
         }
 
         async function verPerfilPaciente(pacienteId) {
