@@ -104,7 +104,7 @@
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
             color: white;
             width: 90%;
-            max-width: 900px; /* Aumentado para acomodar layout horizontal */
+            max-width: 900px;
         }
 
         .modal.pendente {
@@ -191,21 +191,21 @@
 
         .edit-form {
             display: grid;
-            grid-template-columns: 1fr 1fr; /* Duas colunas */
+            grid-template-columns: 1fr 1fr;
             gap: 15px;
-            max-height: 80vh; /* Limita a altura máxima */
+            max-height: 80vh;
         }
 
         .edit-form textarea {
-            grid-column: span 2; /* Textarea ocupa as duas colunas */
+            grid-column: span 2;
         }
 
         .edit-form button {
-            grid-column: span 1; /* Botões ocupam uma coluna cada */
+            grid-column: span 1;
         }
 
         .close-btn {
-            margin-top: 20px; /* Afastamento maior do botão fechar */
+            margin-top: 20px;
         }
     </style>
 </head>
@@ -331,7 +331,7 @@
         <h1>Painel do Administrador</h1>
         <div class="abas">
             <button onclick="mostrarAba('usuarios'); carregarUsuarios();">Usuários</button>
-            <button onclick="mostrarAba('chat'); carregarUsuariosChat();">Chat</button>
+            <button onclick="mostrarAba('pacientes'); carregarPacientes();">Pacientes</button>
         </div>
 
         <!-- Aba Usuários -->
@@ -341,15 +341,11 @@
             <div id="lista-usuarios"></div>
         </div>
 
-        <!-- Aba Chat -->
-        <div id="aba-chat" class="aba hidden">
-            <h2>Chat</h2>
-            <select id="chat-usuario" onchange="carregarMensagens(this.value)">
-                <option value="">Selecione um usuário</option>
-            </select>
-            <div id="mensagens-chat"></div>
-            <input type="text" id="mensagem-chat" placeholder="Digite sua mensagem...">
-            <button onclick="enviarMensagemChat()">Enviar</button>
+        <!-- Aba Pacientes -->
+        <div id="aba-pacientes" class="aba hidden">
+            <h2>Pacientes</h2>
+            <input type="text" class="search-bar" id="search-pacientes" placeholder="Pesquisar pacientes...">
+            <div id="lista-pacientes"></div>
         </div>
 
         <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
@@ -460,6 +456,36 @@
             search.addEventListener('input', () => carregarUsuarios());
         }
 
+        function carregarPacientes() {
+            const lista = document.getElementById('lista-pacientes');
+            const search = document.getElementById('search-pacientes');
+
+            db.collection('Pacientes').onSnapshot(snapshot => {
+                lista.innerHTML = '';
+                const pacientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                const filteredPacientes = pacientes.filter(p => 
+                    p.nomeCompleto.toLowerCase().includes(search.value.toLowerCase()) ||
+                    p.usuario.toLowerCase().includes(search.value.toLowerCase())
+                );
+
+                filteredPacientes.sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
+
+                filteredPacientes.forEach(paciente => {
+                    const div = document.createElement('div');
+                    div.className = 'user-item';
+                    div.innerHTML = `
+                        <div>
+                            <strong>${paciente.nomeCompleto}</strong> (${paciente.usuario})
+                        </div>
+                    `;
+                    lista.appendChild(div);
+                });
+            });
+
+            search.addEventListener('input', () => carregarPacientes());
+        }
+
         async function editarUsuario(id) {
             const doc = await db.collection('Alunos').doc(id).get();
             const usuario = doc.data();
@@ -482,7 +508,7 @@
                     <option value="pendente" ${usuario.status === 'pendente' ? 'selected' : ''}>Pendente</option>
                     <option value="negado" ${usuario.status === 'negado' ? 'selected' : ''}>Negado</option>
                 </select>
-                <textarea name="motivoNegacao" placeholder="Motivo da negação (obrigatório se negado)" ${usuario.status === 'negado' ? `value="${usuario.motivoNegacao || ''}"` : ''}></textarea>
+                <textarea name="motivoNegacao" placeholder="Motivo da negação (obrigatório se negado)" ${usuario.motivoNegacao ? `value="${usuario.motivoNegacao}"` : ''}></textarea>
                 <button type="submit">Salvar</button>
                 <button type="button" onclick="excluirUsuario('${id}')">Excluir</button>
             `;
@@ -497,23 +523,22 @@
                     whatsapp: form.whatsapp.value,
                     senha: form.senha.value,
                     admin: form.admin.value,
-                    status: form.status.value
+                    status: form.status.value,
+                    motivoNegacao: form.status.value === 'negado' ? form.motivoNegacao.value : ''
                 };
 
-                if (form.status.value === 'negado') {
-                    if (!form.motivoNegacao.value) {
-                        alert('O motivo da negação é obrigatório ao negar um usuário.');
-                        return;
-                    }
-                    data.motivoNegacao = form.motivoNegacao.value;
-                    data.negadoPor = auth.currentUser ? auth.currentUser.uid : 'admin';
-                } else {
-                    data.motivoNegacao = firebase.firestore.FieldValue.delete();
-                    data.negadoPor = firebase.firestore.FieldValue.delete();
+                if (form.status.value === 'negado' && !form.motivoNegacao.value) {
+                    alert('O motivo da negação é obrigatório ao negar um usuário.');
+                    return;
                 }
 
-                await db.collection('Alunos').doc(id).update(data);
-                fecharModal();
+                try {
+                    await db.collection('Alunos').doc(id).update(data);
+                    fecharModal();
+                } catch (error) {
+                    console.error('Erro ao atualizar usuário:', error);
+                    alert('Erro ao salvar as alterações: ' + error.message);
+                }
             });
 
             mostrarModal('Editar Usuário', form, 'sucesso');
@@ -524,54 +549,6 @@
                 await db.collection('Alunos').doc(id).delete();
                 fecharModal();
             }
-        }
-
-        function carregarUsuariosChat() {
-            const select = document.getElementById('chat-usuario');
-            db.collection('Alunos').where('status', '==', 'aprovado').onSnapshot(snapshot => {
-                select.innerHTML = '<option value="">Selecione um usuário</option>';
-                snapshot.forEach(doc => {
-                    const aluno = doc.data();
-                    const option = document.createElement('option');
-                    option.value = doc.id;
-                    option.textContent = `${aluno.nomeCompleto} (${aluno.usuario})`;
-                    select.appendChild(option);
-                });
-            });
-        }
-
-        function carregarMensagens(usuarioId) {
-            if (!usuarioId) return;
-            const mensagens = document.getElementById('mensagens-chat');
-            mensagens.innerHTML = '';
-
-            db.collection('Chat').where('usuarioId', '==', usuarioId)
-                .orderBy('timestamp')
-                .onSnapshot(snapshot => {
-                    mensagens.innerHTML = '';
-                    snapshot.forEach(doc => {
-                        const mensagem = doc.data();
-                        const div = document.createElement('div');
-                        div.textContent = `${mensagem.remetente}: ${mensagem.texto}`;
-                        mensagens.appendChild(div);
-                    });
-                });
-        }
-
-        async function enviarMensagemChat() {
-            const mensagem = document.getElementById('mensagem-chat').value;
-            const usuarioId = document.getElementById('chat-usuario').value;
-
-            if (!usuarioId || !mensagem) return;
-
-            await db.collection('Chat').add({
-                usuarioId,
-                remetente: 'Administrador',
-                texto: mensagem,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-            document.getElementById('mensagem-chat').value = '';
         }
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -618,7 +595,6 @@
                         mostrarModal('Sucesso', 'Login como administrador realizado com sucesso!', 'sucesso');
                         mostrarTela('painel-admin');
                         carregarUsuarios();
-                        carregarUsuariosChat();
                         return;
                     }
 
@@ -646,7 +622,6 @@
                         if (aluno.admin === 'yes') {
                             mostrarTela('painel-admin');
                             carregarUsuarios();
-                            carregarUsuariosChat();
                         } else {
                             if (aluno.mensagemAdmin) {
                                 document.getElementById('mensagem-admin').classList.remove('hidden');
