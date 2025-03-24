@@ -330,27 +330,6 @@
             padding: 5px 10px;
             font-size: 0.8rem;
         }
-
-        .water-reminder {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .water-progress {
-            width: 100%;
-            height: 20px;
-            background: #ccc;
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        .water-progress-bar {
-            height: 100%;
-            background: #2196f3;
-            width: 0%;
-            transition: width 0.5s;
-        }
     </style>
 </head>
 <body>
@@ -491,12 +470,12 @@
 
     <script>
         const firebaseConfig = {
-            apiKey: "SuaApiKey",
-            authDomain: "SeuAuthDomain",
-            projectId: "SeuProjectId",
-            storageBucket: "SeuStorageBucket",
-            messagingSenderId: "SeuMessagingSenderId",
-            appId: "SeuAppId"
+            apiKey: "AIzaSyC6MCXqH2TXWzahesHtyk7JeB-gHshiWFc",
+            authDomain: "carcarahealthplus-4ef7b.firebaseapp.com",
+            projectId: "carcarahealthplus-4ef7b",
+            storageBucket: "carcarahealthplus-4ef7b.firebasestorage.app",
+            messagingSenderId: "149920030952",
+            appId: "1:149920030952:web:e19ea0ba0b0f400d18295d"
         };
 
         let db, auth;
@@ -505,7 +484,6 @@
         let usuariosListener = null;
         let currentPacienteId = null;
         let modulosListener = null;
-        let waterReminderInterval = null;
 
         try {
             firebase.initializeApp(firebaseConfig);
@@ -573,7 +551,6 @@
 
         function sairAreaPaciente() {
             if (modulosListener) modulosListener();
-            if (waterReminderInterval) clearInterval(waterReminderInterval);
             currentPacienteId = null;
             mostrarTela('tela-inicial');
         }
@@ -649,7 +626,7 @@
                             <button class="module-btn ${modulosAtivos.includes('pa_glicemia') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'pa_glicemia', this)">P.A./Glicemia</button>
                             <button class="module-btn ${modulosAtivos.includes('anotacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'anotacoes', this)">Anotações</button>
                             <button class="module-btn ${modulosAtivos.includes('medicacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'medicacoes', this)">Medicações</button>
-                            <button class="module-btn ${modulosAtivos.includes('modulo4') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'modulo4', this)">Lembrete Água</button>
+                            <button class="module-btn ${modulosAtivos.includes('modulo4') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'modulo4', this)">Módulo 4</button>
                             <button class="profile-btn" onclick="verPerfilPaciente('${paciente.id}')">👤</button>
                             <button class="registros-btn" onclick="verRegistrosPaciente('${paciente.id}')">Registros</button>
                         </div>
@@ -738,22 +715,8 @@
                 if (modulosAtivos.includes('modulo4')) {
                     const container = document.createElement('div');
                     container.className = 'module-container';
-                    container.innerHTML = `
-                        <h3>Lembrete de Água</h3>
-                        <div class="water-reminder">
-                            <p>Meta diária: <span id="water-goal_${pacienteId}">2000</span> mL</p>
-                            <input type="number" id="water-intake_${pacienteId}" placeholder="Quantidade (mL)" min="0">
-                            <button onclick="registrarAgua('${pacienteId}')">Registrar</button>
-                            <div class="water-progress">
-                                <div class="water-progress-bar" id="water-progress-bar_${pacienteId}"></div>
-                            </div>
-                            <p>Consumido hoje: <span id="water-consumed_${pacienteId}">0</span> mL</p>
-                            <div class="records-list" id="water-list_${pacienteId}"></div>
-                        </div>
-                    `;
+                    container.innerHTML = `<h3>Módulo 4</h3><p>Funcionalidade ainda não implementada.</p>`;
                     content.appendChild(container);
-                    carregarLembreteAgua(pacienteId);
-                    iniciarLembreteAgua(pacienteId);
                 }
 
                 if (modulosAtivos.length === 0) {
@@ -777,7 +740,7 @@
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             };
             try {
-                await db.collection('RegistrosPAeGlicemia').add(data);
+                const docRef = await db.collection('RegistrosPAeGlicemia').add(data);
                 document.getElementById(`pa_${pacienteId}`).value = '';
                 document.getElementById(`glicemia_${pacienteId}`).value = '';
                 carregarListaPA(pacienteId);
@@ -801,7 +764,7 @@
                 const item = document.createElement('div');
                 item.className = 'record-item';
                 item.innerHTML = `
-                    <span>P.A: ${data.pa}, Glicemia: ${data.glicemia} mg/dL - ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                    <span>Aferição: P.A ${data.pa}, Glicemia: ${data.glicemia} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
                     <button class="delete-btn" onclick="apagarAfericao('${doc.id}', '${pacienteId}')">Apagar</button>
                 `;
                 list.appendChild(item);
@@ -851,7 +814,7 @@
                 const item = document.createElement('div');
                 item.className = 'record-item';
                 item.innerHTML = `
-                    <span>${data.anotacoes} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                    <span>Anotação: ${data.anotacoes} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
                     <button class="delete-btn" onclick="apagarAnotacao('${doc.id}', '${pacienteId}')">Apagar</button>
                 `;
                 list.appendChild(item);
@@ -927,7 +890,7 @@
                 const item = document.createElement('div');
                 item.className = 'record-item';
                 item.innerHTML = `
-                    <span>${data.medicacoes.map(m => `${m.nome} (${m.dosagem}, ${m.posologia})`).join(', ')} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                    <span>Medicação: ${data.medicacoes.map(m => `${m.nome} (${m.dosagem}, ${m.posologia})`).join(', ')} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
                     <button class="delete-btn" onclick="apagarMedicacao('${doc.id}', '${pacienteId}')">Apagar</button>
                 `;
                 list.appendChild(item);
@@ -941,99 +904,6 @@
             }
         }
 
-        async function registrarAgua(pacienteId) {
-            const intake = parseInt(document.getElementById(`water-intake_${pacienteId}`).value);
-            if (!intake || intake <= 0) {
-                alert('Digite uma quantidade válida de água!');
-                return;
-            }
-
-            const data = {
-                quantidade: intake,
-                pacienteId,
-                data: new Date().toISOString(),
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            try {
-                await db.collection('RegistrosAgua').add(data);
-                document.getElementById(`water-intake_${pacienteId}`).value = '';
-                carregarLembreteAgua(pacienteId);
-                alert('Consumo de água registrado!');
-            } catch (error) {
-                console.error('Erro ao registrar água:', error);
-                alert('Erro ao registrar o consumo de água.');
-            }
-        }
-
-        async function carregarLembreteAgua(pacienteId) {
-            const list = document.getElementById(`water-list_${pacienteId}`);
-            list.innerHTML = '';
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-
-            const snapshot = await db.collection('RegistrosAgua')
-                .where('pacienteId', '==', pacienteId)
-                .where('timestamp', '>=', firebase.firestore.Timestamp.fromDate(today))
-                .where('timestamp', '<', firebase.firestore.Timestamp.fromDate(tomorrow))
-                .orderBy('timestamp', 'desc')
-                .get();
-
-            let totalConsumed = 0;
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                totalConsumed += data.quantidade;
-                const item = document.createElement('div');
-                item.className = 'record-item';
-                item.innerHTML = `
-                    <span>${data.quantidade} mL - ${new Date(data.data).toLocaleTimeString('pt-BR')}</span>
-                    <button class="delete-btn" onclick="apagarRegistroAgua('${doc.id}', '${pacienteId}')">Apagar</button>
-                `;
-                list.appendChild(item);
-            });
-
-            const goal = 2000; // Meta fixa de 2000 mL por dia
-            document.getElementById(`water-goal_${pacienteId}`).textContent = goal;
-            document.getElementById(`water-consumed_${pacienteId}`).textContent = totalConsumed;
-            const progress = (totalConsumed / goal) * 100;
-            document.getElementById(`water-progress-bar_${pacienteId}`).style.width = `${Math.min(progress, 100)}%`;
-        }
-
-        async function apagarRegistroAgua(registroId, pacienteId) {
-            if (confirm('Deseja apagar este registro de água?')) {
-                await db.collection('RegistrosAgua').doc(registroId).delete();
-                carregarLembreteAgua(pacienteId);
-            }
-        }
-
-        function iniciarLembreteAgua(pacienteId) {
-            if (waterReminderInterval) clearInterval(waterReminderInterval);
-            waterReminderInterval = setInterval(async () => {
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const tomorrow = new Date(today);
-                tomorrow.setDate(tomorrow.getDate() + 1);
-
-                const snapshot = await db.collection('RegistrosAgua')
-                    .where('pacienteId', '==', pacienteId)
-                    .where('timestamp', '>=', firebase.firestore.Timestamp.fromDate(today))
-                    .where('timestamp', '<', firebase.firestore.Timestamp.fromDate(tomorrow))
-                    .get();
-
-                let totalConsumed = 0;
-                snapshot.forEach(doc => totalConsumed += doc.data().quantidade);
-
-                const goal = 2000;
-                if (totalConsumed < goal) {
-                    const currentHour = new Date().getHours();
-                    if (currentHour >= 8 && currentHour <= 20) { // Lembretes entre 8h e 20h
-                        alert('Lembrete: Beba água! Você consumiu ' + totalConsumed + ' mL de ' + goal + ' mL hoje.');
-                    }
-                }
-            }, 2 * 60 * 60 * 1000); // Verifica a cada 2 horas
-        }
-
         async function verRegistrosPaciente(pacienteId) {
             const pacienteDoc = await db.collection('Pacientes').doc(pacienteId).get();
             const pacienteNome = pacienteDoc.data().nomeCompleto;
@@ -1044,7 +914,6 @@
                 <div id="registros-pa"></div>
                 <div id="registros-anotacoes"></div>
                 <div id="registros-medicacoes"></div>
-                <div id="registros-agua"></div>
             `;
 
             // Carregar P.A. e Glicemia
@@ -1102,26 +971,6 @@
                     medList.innerHTML += `
                         <div class="record-item">
                             <span>${data.medicacoes.map(m => `${m.nome} (${m.dosagem}, ${m.posologia})`).join(', ')} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
-                        </div>
-                    `;
-                });
-            }
-
-            // Carregar Registros de Água
-            const aguaSnapshot = await db.collection('RegistrosAgua')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .get();
-            const aguaList = registrosDiv.querySelector('#registros-agua');
-            aguaList.innerHTML = '<h4>Registros de Água</h4>';
-            if (aguaSnapshot.empty) {
-                aguaList.innerHTML += '<p>Nenhum registro encontrado.</p>';
-            } else {
-                aguaSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    aguaList.innerHTML += `
-                        <div class="record-item">
-                            <span>${data.quantidade} mL - ${new Date(data.data).toLocaleString('pt-BR')}</span>
                         </div>
                     `;
                 });
