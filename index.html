@@ -284,6 +284,36 @@
             overflow-y: auto;
             margin-top: 10px;
         }
+
+        .toggle-btn {
+            position: relative;
+            width: 60px;
+            height: 30px;
+            background: #ccc;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle-btn.active {
+            background: #4caf50;
+        }
+
+        .toggle-btn::before {
+            content: '';
+            position: absolute;
+            width: 26px;
+            height: 26px;
+            left: 2px;
+            top: 2px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .toggle-btn.active::before {
+            transform: translateX(30px);
+        }
     </style>
 </head>
 <body>
@@ -424,12 +454,12 @@
 
     <script>
         const firebaseConfig = {
-            apiKey: "Sua_API_Key",
-            authDomain: "Seu_Domínio",
-            projectId: "Seu_Project_ID",
-            storageBucket: "Seu_Storage_Bucket",
-            messagingSenderId: "Seu_Sender_ID",
-            appId: "Seu_App_ID"
+            apiKey: "AIzaSyC6MCXqH2TXWzahesHtyk7JeB-gHshiWFc",
+            authDomain: "carcarahealthplus-4ef7b.firebaseapp.com",
+            projectId: "carcarahealthplus-4ef7b",
+            storageBucket: "carcarahealthplus-4ef7b.firebasestorage.app",
+            messagingSenderId: "149920030952",
+            appId: "1:149920030952:web:e19ea0ba0b0f400d18295d"
         };
 
         let db, auth;
@@ -715,12 +745,32 @@
             } else {
                 snapshot.forEach(doc => {
                     const data = doc.data();
-                    const item = document.createElement('p');
-                    item.textContent = `P.A.: ${data.pa}, Glicemia: ${data.glicemia} mg/dL, Data: ${new Date(data.data).toLocaleString('pt-BR')}`;
+                    const item = document.createElement('div');
+                    item.style.display = 'flex';
+                    item.style.alignItems = 'center';
+                    item.style.gap = '10px';
+                    item.style.marginBottom = '10px';
+                    item.innerHTML = `
+                        <span>P.A.: ${data.pa}, Glicemia: ${data.glicemia} mg/dL, Data: ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                        <button onclick="apagarAfericao('${doc.id}', '${pacienteId}')" style="background: #f44336;">Apagar</button>
+                    `;
                     historico.appendChild(item);
                 });
             }
             mostrarModal('Histórico de P.A. e Glicemia', historico, 'sucesso');
+        }
+
+        async function apagarAfericao(afericaoId, pacienteId) {
+            if (confirm('Deseja realmente apagar esta aferição?')) {
+                try {
+                    await db.collection('RegistrosPAeGlicemia').doc(afericaoId).delete();
+                    fecharModal();
+                    verHistoricoPA(pacienteId); // Atualiza o histórico após exclusão
+                } catch (error) {
+                    console.error('Erro ao apagar:', error);
+                    alert('Erro ao apagar a aferição.');
+                }
+            }
         }
 
         async function salvarAnotacoes(pacienteId) {
@@ -1015,7 +1065,7 @@
                     <option value="admins">Apenas Administradores</option>
                 </select>
                 <button type="submit">Enviar</button>
-                <button type="button" onclick="desativarBroadcast()">Desativar</button>
+                <div class="toggle-btn" id="broadcast-toggle" onclick="toggleBroadcast(this)"></div>
             `;
 
             form.addEventListener('submit', async (e) => {
@@ -1031,6 +1081,7 @@
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     document.getElementById('broadcast-btn').classList.add('active');
+                    document.getElementById('broadcast-toggle').classList.add('active');
                     fecharModal();
                 } catch (error) {
                     console.error('Erro ao enviar broadcast:', error);
@@ -1038,14 +1089,45 @@
                 }
             });
 
+            // Verifica estado inicial do broadcast
+            db.collection('Broadcast').doc('mensagemAtiva').get().then(doc => {
+                if (doc.exists && doc.data().ativo) {
+                    document.getElementById('broadcast-toggle').classList.add('active');
+                }
+            });
+
             mostrarModal('Enviar Mensagem', form, 'sucesso');
         }
 
-        async function desativarBroadcast() {
-            await db.collection('Broadcast').doc('mensagemAtiva').update({ ativo: false });
-            document.getElementById('broadcast-btn').classList.remove('active');
-            fecharModal();
-            fecharBroadcastModal();
+        async function toggleBroadcast(toggleBtn) {
+            const isActive = toggleBtn.classList.contains('active');
+            try {
+                if (isActive) {
+                    await db.collection('Broadcast').doc('mensagemAtiva').update({ ativo: false });
+                    toggleBtn.classList.remove('active');
+                    document.getElementById('broadcast-btn').classList.remove('active');
+                    fecharBroadcastModal();
+                } else {
+                    const form = toggleBtn.closest('form');
+                    const mensagem = form.querySelector('textarea[name="mensagem"]').value;
+                    const destinatarios = form.querySelector('select[name="destinatarios"]').value;
+                    if (!mensagem) {
+                        alert('Digite uma mensagem antes de ativar!');
+                        return;
+                    }
+                    await db.collection('Broadcast').doc('mensagemAtiva').set({
+                        mensagem,
+                        destinatarios,
+                        ativo: true,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    toggleBtn.classList.add('active');
+                    document.getElementById('broadcast-btn').classList.add('active');
+                }
+            } catch (error) {
+                console.error('Erro ao alternar broadcast:', error);
+                alert('Erro ao alternar o broadcast.');
+            }
         }
 
         async function verificarBroadcast() {
