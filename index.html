@@ -330,8 +330,8 @@
     <div id="painel-admin" class="container hidden">
         <h1>Painel do Administrador</h1>
         <div class="abas">
-            <button onclick="mostrarAba('usuarios')">Usuários</button>
-            <button onclick="mostrarAba('pacientes')">Pacientes</button>
+            <button onclick="mostrarAba('usuarios'); carregarUsuarios();">Usuários</button>
+            <button onclick="mostrarAba('pacientes'); carregarPacientes();">Pacientes</button>
         </div>
 
         <!-- Aba Usuários -->
@@ -363,6 +363,8 @@
 
         let db, auth;
         let currentUserId = null;
+        let pacientesListener = null; // Para gerenciar o listener de pacientes
+        let usuariosListener = null; // Para gerenciar o listener de usuários
 
         try {
             firebase.initializeApp(firebaseConfig);
@@ -415,7 +417,10 @@
             const lista = document.getElementById('lista-usuarios');
             const search = document.getElementById('search-usuarios');
 
-            db.collection('Alunos').onSnapshot(snapshot => {
+            // Remove o listener anterior, se existir
+            if (usuariosListener) usuariosListener();
+
+            usuariosListener = db.collection('Alunos').onSnapshot(snapshot => {
                 lista.innerHTML = '';
                 const usuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -453,14 +458,19 @@
                 });
             });
 
-            search.addEventListener('input', () => carregarUsuarios());
+            // Remove e adiciona o listener de busca para evitar duplicatas
+            search.removeEventListener('input', carregarUsuarios);
+            search.addEventListener('input', carregarUsuarios);
         }
 
         function carregarPacientes() {
             const lista = document.getElementById('lista-pacientes');
             const search = document.getElementById('search-pacientes');
 
-            db.collection('Pacientes').onSnapshot(snapshot => {
+            // Remove o listener anterior, se existir
+            if (pacientesListener) pacientesListener();
+
+            pacientesListener = db.collection('Pacientes').onSnapshot(snapshot => {
                 lista.innerHTML = '';
                 const pacientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -482,9 +492,14 @@
                     `;
                     lista.appendChild(div);
                 });
+            }, error => {
+                console.error('Erro ao carregar pacientes:', error);
+                lista.innerHTML = '<p>Erro ao carregar pacientes. Verifique o console.</p>';
             });
 
-            search.addEventListener('input', () => carregarPacientes());
+            // Remove e adiciona o listener de busca para evitar duplicatas
+            search.removeEventListener('input', carregarPacientes);
+            search.addEventListener('input', carregarPacientes);
         }
 
         async function editarUsuario(id) {
@@ -643,8 +658,6 @@
                     if (matricula === 'admin' && senha === 'admin') {
                         mostrarModal('Sucesso', 'Login como administrador realizado com sucesso!', 'sucesso');
                         mostrarTela('painel-admin');
-                        carregarUsuarios();
-                        carregarPacientes(); // Carrega pacientes ao entrar no painel admin
                         return;
                     }
 
@@ -671,8 +684,6 @@
                         currentUserId = alunoId;
                         if (aluno.admin === 'yes') {
                             mostrarTela('painel-admin');
-                            carregarUsuarios();
-                            carregarPacientes(); // Carrega pacientes ao entrar no painel admin
                         } else {
                             if (aluno.mensagemAdmin) {
                                 document.getElementById('mensagem-admin').classList.remove('hidden');
