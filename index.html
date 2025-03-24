@@ -76,6 +76,14 @@
             background: #4caf50;
         }
 
+        button.registros-btn {
+            background: #2196f3;
+        }
+
+        button.registros-btn:hover {
+            background: #1976d2;
+        }
+
         input, select, textarea {
             width: 100%;
             padding: 8px;
@@ -394,7 +402,10 @@
     <!-- Painel do Administrador -->
     <div id="painel-admin" class="container hidden">
         <h1>Painel do Administrador</h1>
-        <button id="broadcast-btn" class="broadcast-btn" onclick="abrirFormularioBroadcast()">📢 Enviar Mensagem</button>
+        <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
+            <button id="broadcast-btn" class="broadcast-btn" onclick="abrirFormularioBroadcast()">📢 Enviar Mensagem</button>
+            <button onclick="abrirFormularioBroadcast()">Enviar Mensagem</button>
+        </div>
         <div class="abas">
             <button onclick="mostrarAba('usuarios'); carregarUsuarios();">Usuários</button>
             <button onclick="mostrarAba('pacientes'); carregarPacientesAdmin();">Pacientes</button>
@@ -607,11 +618,11 @@
                         </div>
                         <div>
                             <button class="module-btn ${modulosAtivos.includes('pa_glicemia') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'pa_glicemia', this)">P.A./Glicemia</button>
-                            <button class="module-btn ${modulosAtivos.includes('anotacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'anotacoes', this)">Anotações</button>
+                            <button class="module-btn ${modulosAtivos.includes('anotacoes') ? 'active' : ''}" onclick="editarAnotacoesAluno('${paciente.id}')">Anotações</button>
                             <button class="module-btn ${modulosAtivos.includes('medicacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'medicacoes', this)">Medicações</button>
                             <button class="module-btn ${modulosAtivos.includes('modulo4') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'modulo4', this)">Módulo 4</button>
                             <button class="profile-btn" onclick="verPerfilPaciente('${paciente.id}')">👤</button>
-                            <button onclick="verRegistrosPaciente('${paciente.id}')">Registros</button>
+                            <button class="registros-btn" onclick="verRegistrosPaciente('${paciente.id}')">Registros</button>
                         </div>
                     `;
                     lista.appendChild(div);
@@ -754,7 +765,6 @@
             };
             try {
                 await db.collection('AnotacoesMedicas').add(data);
-                document.getElementById(`anotacoes_${pacienteId}`).value = '';
                 mostrarModal('Sucesso', 'Anotação salva com sucesso!', 'sucesso');
             } catch (error) {
                 console.error('Erro ao salvar:', error);
@@ -771,6 +781,41 @@
             if (!snapshot.empty) {
                 document.getElementById(`anotacoes_${pacienteId}`).value = snapshot.docs[0].data().anotacoes;
             }
+        }
+
+        async function editarAnotacoesAluno(pacienteId) {
+            const snapshot = await db.collection('AnotacoesMedicas')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .limit(1)
+                .get();
+            
+            const anotacoes = snapshot.empty ? '' : snapshot.docs[0].data().anotacoes;
+            const form = document.createElement('form');
+            form.innerHTML = `
+                <h3>Editar Anotações</h3>
+                <textarea name="anotacoes" rows="5">${anotacoes}</textarea>
+                <button type="submit">Salvar</button>
+            `;
+            
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const data = {
+                    anotacoes: form.anotacoes.value,
+                    pacienteId,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                try {
+                    await db.collection('AnotacoesMedicas').add(data);
+                    fecharModal();
+                    mostrarModal('Sucesso', 'Anotação salva com sucesso!', 'sucesso');
+                } catch (error) {
+                    console.error('Erro ao salvar:', error);
+                    alert('Erro ao salvar a anotação.');
+                }
+            });
+
+            mostrarModal('Editar Anotações', form, 'sucesso');
         }
 
         function adicionarMedicacao(pacienteId) {
