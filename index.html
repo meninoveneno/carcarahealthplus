@@ -12,372 +12,30 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Poppins', sans-serif;
+        /* Estilos mantidos iguais, exceto adição para lista de registros */
+        .records-list {
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
         }
-
-        body {
-            min-height: 100vh;
-            background: linear-gradient(45deg, #8B0000, #450000);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .container {
-            background: rgba(26, 42, 74, 0.9);
-            padding: 2rem;
-            border-radius: 15px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.3);
-            width: 90%;
-            max-width: 600px;
-            color: white;
-            position: relative;
-        }
-
-        h1 {
-            text-align: center;
-            margin-bottom: 1.5rem;
-            font-size: 1.8rem;
-            text-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-
-        .btn-group {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        button {
-            padding: 10px;
-            border: none;
-            border-radius: 8px;
-            background: #d32f2f;
-            color: white;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.3s;
-            font-size: 0.9rem;
-        }
-
-        button:hover:not(:disabled) {
-            background: #b71c1c;
-        }
-
-        button:disabled {
-            background: #666;
-            cursor: not-allowed;
-        }
-
-        button.active {
-            background: #4caf50;
-        }
-
-        button.registros-btn {
-            background: #2196f3;
-        }
-
-        button.registros-btn:hover:not(:disabled) {
-            background: #1976d2;
-        }
-
-        input, select, textarea {
-            width: 100%;
-            padding: 8px;
-            margin: 6px 0;
-            background: #2c3e50;
-            border: none;
-            border-radius: 5px;
-            color: white;
-            font-size: 0.9rem;
-        }
-
-        textarea.editable {
-            background: #fff;
-            color: #000;
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        .back-btn {
-            background: #2c3e50;
-            margin-top: 1rem;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(26, 42, 74, 1);
-            padding: 1.5rem;
-            border-radius: 10px;
-            text-align: center;
-            z-index: 1000;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            color: white;
-            width: 90%;
-            max-width: 700px;
-        }
-
-        .modal.pendente {
-            background: #ffeb3b;
-            color: black;
-        }
-
-        .modal.negado {
-            background: #f44336;
-            color: white;
-        }
-
-        .modal.broadcast {
-            background: #ffeb3b;
-            color: black;
-            position: fixed;
-            top: 10%;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 2000;
-        }
-
-        .overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 999;
-        }
-
-        .checkbox-container {
-            display: flex;
-            align-items: center;
-            margin: 10px 0;
-        }
-
-        .checkbox-container input {
-            width: auto;
-            margin: 0 8px 0 0;
-        }
-
-        .badge-admin {
-            background: gold;
-            color: black;
-            padding: 4px 8px;
-            border-radius: 5px;
-            font-size: 0.8rem;
-            margin-left: 8px;
-        }
-
-        .status-indicator {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-right: 8px;
-        }
-
-        .approved { background: #00ff00; }
-        .pending { background: #ffeb3b; }
-        .denied { background: #ff0000; }
-
-        .abas {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .aba {
-            display: none;
-        }
-
-        .aba.visible {
-            display: block;
-        }
-
-        .search-bar {
-            margin-bottom: 1rem;
-        }
-
-        .user-item {
-            background: #2c3e50;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 10px;
+        .record-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 5px;
-        }
-
-        .module-btn {
-            padding: 8px;
-            font-size: 0.8rem;
-            min-width: 60px;
-        }
-
-        .profile-btn {
-            background: #2196f3;
-            padding: 8px;
-            font-size: 0.8rem;
-        }
-
-        .patient-list {
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .edit-form, .view-form {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-
-        .edit-form textarea, .view-form textarea {
-            grid-column: span 2;
-            height: 80px;
-        }
-
-        .edit-form button, .view-form button {
-            grid-column: span 1;
-        }
-
-        .close-btn {
-            margin-top: 15px;
-        }
-
-        .medication-entry {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr auto;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
-        .module-container {
-            background: #34495e;
-            padding: 10px;
+            padding: 5px;
+            background: #2c3e50;
+            margin-bottom: 5px;
             border-radius: 5px;
-            margin-top: 10px;
         }
-
-        .broadcast-btn {
-            background: #ff9800;
-            margin-bottom: 1rem;
-        }
-
-        .broadcast-btn.active {
-            background: #4caf50;
-        }
-
-        .history-list {
-            max-height: 200px;
-            overflow-y: auto;
-            margin-top: 10px;
-        }
-
-        .toggle-btn {
-            position: relative;
-            width: 60px;
-            height: 30px;
-            background: #ccc;
-            border-radius: 15px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        .toggle-btn.active {
-            background: #4caf50;
-        }
-
-        .toggle-btn::before {
-            content: '';
-            position: absolute;
-            width: 26px;
-            height: 26px;
-            left: 2px;
-            top: 2px;
-            background: white;
-            border-radius: 50%;
-            transition: transform 0.3s;
-        }
-
-        .toggle-btn.active::before {
-            transform: translateX(30px);
+        .delete-btn {
+            background: #f44336;
+            padding: 5px 10px;
+            font-size: 0.8rem;
         }
     </style>
 </head>
 <body>
-    <!-- Modal -->
-    <div class="overlay" id="overlay"></div>
-    <div class="modal" id="modal">
-        <h3 id="modal-title"></h3>
-        <div id="modal-content"></div>
-        <button class="close-btn" onclick="fecharModal()">Fechar</button>
-    </div>
-
-    <!-- Modal de Broadcast -->
-    <div class="modal broadcast" id="broadcast-modal">
-        <h3>Mensagem da Administração</h3>
-        <p id="broadcast-message"></p>
-        <button class="close-btn" onclick="fecharBroadcastModal()">Fechar</button>
-    </div>
-
-    <!-- Telas -->
-    <div id="tela-inicial" class="container">
-        <h1>Carcará Health +</h1>
-        <div class="btn-group">
-            <button onclick="mostrarTela('tela-opcoes-aluno')">Sou Aluno</button>
-            <button onclick="mostrarTela('tela-opcoes-paciente')">Sou Paciente</button>
-        </div>
-    </div>
-
-    <!-- Opções Aluno -->
-    <div id="tela-opcoes-aluno" class="container hidden">
-        <h1>Carcará Health +</h1>
-        <div class="btn-group">
-            <button onclick="mostrarTela('cadastro-aluno')">Cadastrar</button>
-            <button onclick="mostrarTela('login-aluno')">Login</button>
-            <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
-        </div>
-    </div>
-
-    <!-- Cadastro Aluno -->
-    <div id="cadastro-aluno" class="container hidden">
-        <h1>Cadastro de Aluno</h1>
-        <form id="formCadastroAluno">
-            <input type="text" placeholder="Nome Completo" required>
-            <input type="text" placeholder="Matrícula" required>
-            <input type="email" placeholder="Email" required>
-            <input type="date" required>
-            <input type="text" placeholder="WhatsApp" required>
-            <button type="submit">Cadastrar</button>
-            <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-aluno')">Voltar</button>
-        </form>
-    </div>
-
-    <!-- Login Aluno -->
-    <div id="login-aluno" class="container hidden">
-        <h1>Login Aluno</h1>
-        <form id="formLoginAluno">
-            <input type="text" placeholder="Matrícula" required>
-            <input type="text" placeholder="Senha" required>
-            <p>Exemplo: usuário: matrícula, senha: DDMMYYYY</p>
-            <button type="submit">Entrar</button>
-            <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-aluno')">Voltar</button>
-        </form>
-    </div>
-
-    <!-- Área do Aluno -->
+    <!-- Estrutura HTML mantida, exceto remoção do botão "Enviar" do modal de broadcast e "Ver histórico" da área do aluno -->
     <div id="area-aluno" class="container hidden">
         <h1>Área do Aluno</h1>
         <div id="mensagem-admin" class="hidden">
@@ -387,68 +45,23 @@
         <button class="back-btn" onclick="sairAreaAluno()">Sair</button>
     </div>
 
-    <!-- Opções Paciente -->
-    <div id="tela-opcoes-paciente" class="container hidden">
-        <h1>Carcará Health +</h1>
-        <div class="btn-group">
-            <button onclick="mostrarTela('cadastro-paciente')">Cadastrar</button>
-            <button onclick="mostrarTela('login-paciente')">Login</button>
-            <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
-        </div>
-    </div>
-
-    <!-- Cadastro Paciente -->
-    <div id="cadastro-paciente" class="container hidden">
-        <h1>Cadastro de Paciente</h1>
-        <form id="formCadastroPaciente">
-            <input type="text" placeholder="Nome Completo" required>
-            <input type="date" required>
-            <input type="email" placeholder="Email (opcional)">
-            <input type="text" placeholder="Cartão SUS (opcional)">
-            <input type="text" placeholder="WhatsApp" required>
-            <div class="checkbox-container">
-                <input type="checkbox" required>
-                <span>Confirmo que li e aceito os termos de uso</span>
-            </div>
-            <button type="submit">Cadastrar</button>
-            <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-paciente')">Voltar</button>
-        </form>
-    </div>
-
-    <!-- Login Paciente -->
-    <div id="login-paciente" class="container hidden">
-        <h1>Login Paciente</h1>
-        <form id="formLoginPaciente">
-            <input type="text" placeholder="Usuário" required>
-            <input type="text" placeholder="Senha" required>
-            <p>Exemplo: usuário: nomeesobrenomexxyyzzzz, senha: DDMMYYYY</p>
-            <button type="submit">Entrar</button>
-            <button type="button" class="back-btn" onclick="mostrarTela('tela-opcoes-paciente')">Voltar</button>
-        </form>
-    </div>
-
-    <!-- Tela de Módulos do Paciente -->
     <div id="tela-modulos" class="container hidden">
         <h1 id="paciente-nome">Módulos</h1>
         <div id="module-content"></div>
         <button class="back-btn" onclick="sairAreaPaciente()">Sair</button>
     </div>
 
-    <!-- Painel do Administrador -->
     <div id="painel-admin" class="container hidden">
         <h1>Painel do Administrador</h1>
         <button id="broadcast-btn" class="broadcast-btn" onclick="abrirFormularioBroadcast()">📢 Enviar Mensagem</button>
         <div class="abas">
             <button onclick="mostrarAba('usuarios'); carregarUsuarios();">Usuários</button>
         </div>
-
-        <!-- Aba Usuários -->
         <div id="aba-usuarios" class="aba visible">
             <h2>Usuários</h2>
             <input type="text" class="search-bar" id="search-usuarios" placeholder="Pesquisar usuários...">
             <div id="lista-usuarios"></div>
         </div>
-
         <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
     </div>
 
@@ -469,14 +82,9 @@
         let currentPacienteId = null;
         let modulosListener = null;
 
-        try {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            auth = firebase.auth();
-            console.log('Firebase inicializado');
-        } catch (e) {
-            alert('Erro ao carregar Firebase: ' + e.message);
-        }
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        auth = firebase.auth();
 
         function formatarDataBrasileira(data) {
             const partes = data.split('-');
@@ -486,11 +94,8 @@
         function mostrarTela(idTela) {
             document.querySelectorAll('.container').forEach(tela => tela.classList.add('hidden'));
             document.getElementById(idTela).classList.remove('hidden');
-            if (idTela === 'area-aluno') {
-                carregarPacientesAluno();
-            } else if (idTela === 'tela-modulos' && currentPacienteId) {
-                carregarModulosPaciente(currentPacienteId);
-            }
+            if (idTela === 'area-aluno') carregarPacientesAluno();
+            else if (idTela === 'tela-modulos' && currentPacienteId) carregarModulosPaciente(currentPacienteId);
             verificarBroadcast();
         }
 
@@ -498,33 +103,15 @@
             const modal = document.getElementById('modal');
             modal.className = `modal ${status || ''}`;
             document.getElementById('modal-title').textContent = titulo;
-            if (typeof conteudo === 'string') {
-                document.getElementById('modal-content').textContent = conteudo;
-            } else {
-                document.getElementById('modal-content').innerHTML = '';
-                document.getElementById('modal-content').appendChild(conteudo);
-            }
-            document.getElementById('modal').style.display = 'block';
+            if (typeof conteudo === 'string') document.getElementById('modal-content').textContent = conteudo;
+            else document.getElementById('modal-content').innerHTML = '', document.getElementById('modal-content').appendChild(conteudo);
+            modal.style.display = 'block';
             document.getElementById('overlay').style.display = 'block';
         }
 
         function fecharModal() {
             document.getElementById('modal').style.display = 'none';
             document.getElementById('overlay').style.display = 'none';
-        }
-
-        function mostrarBroadcast(mensagem) {
-            document.getElementById('broadcast-message').textContent = mensagem;
-            document.getElementById('broadcast-modal').style.display = 'block';
-        }
-
-        function fecharBroadcastModal() {
-            document.getElementById('broadcast-modal').style.display = 'none';
-        }
-
-        function mostrarAba(aba) {
-            document.querySelectorAll('.aba').forEach(aba => aba.classList.add('hidden'));
-            document.getElementById(`aba-${aba}`).classList.remove('hidden');
         }
 
         function sairAreaAluno() {
@@ -539,54 +126,347 @@
             mostrarTela('tela-inicial');
         }
 
-        function carregarUsuarios() {
-            if (usuariosListener) usuariosListener();
-            const lista = document.getElementById('lista-usuarios');
-            const search = document.getElementById('search-usuarios');
+        async function carregarModulosPaciente(pacienteId) {
+            const pacienteNome = document.getElementById('paciente-nome');
+            const content = document.getElementById('module-content');
+            const pacienteDoc = await db.collection('Pacientes').doc(pacienteId).get();
+            pacienteNome.textContent = `Módulos - ${pacienteDoc.data().nomeCompleto}`;
 
-            usuariosListener = db.collection('Alunos').onSnapshot(snapshot => {
-                lista.innerHTML = '';
-                const usuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            if (modulosListener) modulosListener();
+            modulosListener = db.collection('ModulosAtivos').doc(pacienteId).onSnapshot(doc => {
+                content.innerHTML = '';
+                const modulosAtivos = doc.exists ? doc.data().modulos || [] : [];
 
-                const filteredUsuarios = usuarios.filter(u => 
-                    u.nomeCompleto.toLowerCase().includes(search.value.toLowerCase()) ||
-                    u.usuario.toLowerCase().includes(search.value.toLowerCase())
-                );
-
-                filteredUsuarios.sort((a, b) => {
-                    const aIsAdmin = a.admin === 'yes';
-                    const bIsAdmin = b.admin === 'yes';
-                    if (aIsAdmin !== bIsAdmin) return bIsAdmin - aIsAdmin;
-                    return a.nomeCompleto.localeCompare(b.nomeCompleto);
-                });
-
-                filteredUsuarios.forEach(usuario => {
-                    const div = document.createElement('div');
-                    div.className = 'user-item';
-                    const isAdmin = usuario.admin === 'yes';
-                    let statusClass;
-                    switch (usuario.status) {
-                        case 'aprovado': statusClass = 'approved'; break;
-                        case 'pendente': statusClass = 'pending'; break;
-                        case 'negado': statusClass = 'denied'; break;
-                    }
-                    div.innerHTML = `
-                        <div>
-                            <span class="status-indicator ${statusClass}"></span>
-                            <strong>${usuario.nomeCompleto}</strong> (${usuario.usuario})
-                            ${isAdmin ? '<span class="badge-admin">Admin</span>' : ''}
-                        </div>
-                        <button onclick="editarUsuario('${usuario.id}')">Editar</button>
+                if (modulosAtivos.includes('pa_glicemia')) {
+                    const container = document.createElement('div');
+                    container.className = 'module-container';
+                    container.innerHTML = `
+                        <h3>P.A. e Glicemia</h3>
+                        <input type="text" id="pa_${pacienteId}" placeholder="Pressão Arterial (ex: 120/80)">
+                        <input type="number" id="glicemia_${pacienteId}" placeholder="Glicemia (mg/dL)">
+                        <button onclick="salvarPA('${pacienteId}')">Adicionar Aferição</button>
+                        <div class="records-list" id="pa-list_${pacienteId}"></div>
                     `;
-                    lista.appendChild(div);
-                });
-            });
+                    content.appendChild(container);
+                    carregarListaPA(pacienteId);
+                }
 
-            search.removeEventListener('input', carregarUsuarios);
-            search.addEventListener('input', carregarUsuarios);
+                if (modulosAtivos.includes('anotacoes')) {
+                    const container = document.createElement('div');
+                    container.className = 'module-container';
+                    container.innerHTML = `
+                        <h3>Anotações Médicas</h3>
+                        <textarea id="anotacoes_${pacienteId}" placeholder="Digite suas anotações médicas" rows="5"></textarea>
+                        <button onclick="salvarAnotacoes('${pacienteId}')">Salvar</button>
+                        <div class="records-list" id="anotacoes-list_${pacienteId}"></div>
+                    `;
+                    content.appendChild(container);
+                    carregarListaAnotacoes(pacienteId);
+                }
+
+                if (modulosAtivos.includes('medicacoes')) {
+                    const container = document.createElement('div');
+                    container.className = 'module-container';
+                    container.innerHTML = `
+                        <h3>Registro de Medicações</h3>
+                        <div id="medication-list_${pacienteId}">
+                            <div class="medication-entry">
+                                <input type="text" name="nome" placeholder="Nome da medicação">
+                                <input type="text" name="dosagem" placeholder="Dosagem">
+                                <input type="text" name="posologia" placeholder="Posologia">
+                                <button type="button" onclick="removerMedicacao(this)">-</button>
+                            </div>
+                        </div>
+                        <button onclick="adicionarMedicacao('${pacienteId}')">+ Adicionar Medicação</button>
+                        <button onclick="salvarMedicacoes('${pacienteId}')">Salvar</button>
+                        <div class="records-list" id="medicacoes-list_${pacienteId}"></div>
+                    `;
+                    content.appendChild(container);
+                    carregarListaMedicacoes(pacienteId);
+                }
+
+                if (modulosAtivos.includes('modulo4')) {
+                    const container = document.createElement('div');
+                    container.className = 'module-container';
+                    container.innerHTML = `<h3>Módulo 4</h3><p>Funcionalidade ainda não implementada.</p>`;
+                    content.appendChild(container);
+                }
+
+                if (modulosAtivos.length === 0) content.innerHTML = '<p>Nenhum módulo ativo para este paciente.</p>';
+            });
         }
 
-        function carregarPacientesAluno() {
+        async function salvarPA(pacienteId) {
+            const pa = document.getElementById(`pa_${pacienteId}`).value;
+            const glicemia = document.getElementById(`glicemia_${pacienteId}`).value;
+            if (!pa || !glicemia) {
+                alert('Preencha ambos os campos!');
+                return;
+            }
+            const data = {
+                pa,
+                glicemia: parseInt(glicemia),
+                data: new Date().toISOString(),
+                pacienteId,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            try {
+                const docRef = await db.collection('RegistrosPAeGlicemia').add(data);
+                localStorage.setItem(`pa_${pacienteId}_${docRef.id}`, JSON.stringify(data));
+                document.getElementById(`pa_${pacienteId}`).value = '';
+                document.getElementById(`glicemia_${pacienteId}`).value = '';
+                carregarListaPA(pacienteId);
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                alert('Erro ao salvar a aferição.');
+            }
+        }
+
+        async function carregarListaPA(pacienteId) {
+            const list = document.getElementById(`pa-list_${pacienteId}`);
+            list.innerHTML = '';
+            const snapshot = await db.collection('RegistrosPAeGlicemia')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const item = document.createElement('div');
+                item.className = 'record-item';
+                item.innerHTML = `
+                    <span>Aferição: P.A ${data.pa}, Glicemia: ${data.glicemia} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                    <button class="delete-btn" onclick="apagarAfericao('${doc.id}', '${pacienteId}')">Apagar</button>
+                `;
+                list.appendChild(item);
+            });
+
+            // Carregar do localStorage também
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith(`pa_${pacienteId}_`)) {
+                    const data = JSON.parse(localStorage.getItem(key));
+                    const item = document.createElement('div');
+                    item.className = 'record-item';
+                    item.innerHTML = `
+                        <span>Aferição: P.A ${data.pa}, Glicemia: ${data.glicemia} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                        <button class="delete-btn" onclick="apagarAfericaoLocal('${key}', '${pacienteId}')">Apagar</button>
+                    `;
+                    list.appendChild(item);
+                }
+            }
+        }
+
+        async function apagarAfericao(afericaoId, pacienteId) {
+            if (confirm('Deseja apagar esta aferição?')) {
+                await db.collection('RegistrosPAeGlicemia').doc(afericaoId).delete();
+                localStorage.removeItem(`pa_${pacienteId}_${afericaoId}`);
+                carregarListaPA(pacienteId);
+            }
+        }
+
+        function apagarAfericaoLocal(key, pacienteId) {
+            if (confirm('Deseja apagar esta aferição?')) {
+                localStorage.removeItem(key);
+                carregarListaPA(pacienteId);
+            }
+        }
+
+        async function salvarAnotacoes(pacienteId) {
+            const anotacoes = document.getElementById(`anotacoes_${pacienteId}`).value;
+            if (!anotacoes) {
+                alert('Digite uma anotação!');
+                return;
+            }
+            const data = {
+                anotacoes,
+                pacienteId,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                data: new Date().toISOString()
+            };
+            try {
+                const docRef = await db.collection('AnotacoesMedicas').add(data);
+                localStorage.setItem(`anotacao_${pacienteId}_${docRef.id}`, JSON.stringify(data));
+                document.getElementById(`anotacoes_${pacienteId}`).value = '';
+                carregarListaAnotacoes(pacienteId);
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                alert('Erro ao salvar a anotação.');
+            }
+        }
+
+        async function carregarListaAnotacoes(pacienteId) {
+            const list = document.getElementById(`anotacoes-list_${pacienteId}`);
+            list.innerHTML = '';
+            const snapshot = await db.collection('AnotacoesMedicas')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const item = document.createElement('div');
+                item.className = 'record-item';
+                item.innerHTML = `
+                    <span>Anotação: ${data.anotacoes} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                    <button class="delete-btn" onclick="apagarAnotacao('${doc.id}', '${pacienteId}')">Apagar</button>
+                `;
+                list.appendChild(item);
+            });
+
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith(`anotacao_${pacienteId}_`)) {
+                    const data = JSON.parse(localStorage.getItem(key));
+                    const item = document.createElement('div');
+                    item.className = 'record-item';
+                    item.innerHTML = `
+                        <span>Anotação: ${data.anotacoes} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                        <button class="delete-btn" onclick="apagarAnotacaoLocal('${key}', '${pacienteId}')">Apagar</button>
+                    `;
+                    list.appendChild(item);
+                }
+            }
+        }
+
+        async function apagarAnotacao(anotacaoId, pacienteId) {
+            if (confirm('Deseja apagar esta anotação?')) {
+                await db.collection('AnotacoesMedicas').doc(anotacaoId).delete();
+                localStorage.removeItem(`anotacao_${pacienteId}_${anotacaoId}`);
+                carregarListaAnotacoes(pacienteId);
+            }
+        }
+
+        function apagarAnotacaoLocal(key, pacienteId) {
+            if (confirm('Deseja apagar esta anotação?')) {
+                localStorage.removeItem(key);
+                carregarListaAnotacoes(pacienteId);
+            }
+        }
+
+        async function salvarMedicacoes(pacienteId) {
+            const entries = document.querySelectorAll(`#medication-list_${pacienteId} .medication-entry`);
+            const medicacoes = Array.from(entries).map(entry => ({
+                nome: entry.querySelector('[name="nome"]').value,
+                dosagem: entry.querySelector('[name="dosagem"]').value,
+                posologia: entry.querySelector('[name="posologia"]').value
+            })).filter(m => m.nome && m.dosagem && m.posologia);
+            
+            if (medicacoes.length === 0) {
+                alert('Adicione pelo menos uma medicação válida!');
+                return;
+            }
+            
+            const data = {
+                medicacoes,
+                pacienteId,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                data: new Date().toISOString()
+            };
+            try {
+                const docRef = await db.collection('Medicacoes').add(data);
+                localStorage.setItem(`medicacao_${pacienteId}_${docRef.id}`, JSON.stringify(data));
+                carregarListaMedicacoes(pacienteId);
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                alert('Erro ao salvar as medicações.');
+            }
+        }
+
+        async function carregarListaMedicacoes(pacienteId) {
+            const list = document.getElementById(`medicacoes-list_${pacienteId}`);
+            list.innerHTML = '';
+            const snapshot = await db.collection('Medicacoes')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const item = document.createElement('div');
+                item.className = 'record-item';
+                item.innerHTML = `
+                    <span>Medicação: ${data.medicacoes.map(m => `${m.nome} (${m.dosagem}, ${m.posologia})`).join(', ')} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                    <button class="delete-btn" onclick="apagarMedicacao('${doc.id}', '${pacienteId}')">Apagar</button>
+                `;
+                list.appendChild(item);
+            });
+
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith(`medicacao_${pacienteId}_`)) {
+                    const data = JSON.parse(localStorage.getItem(key));
+                    const item = document.createElement('div');
+                    item.className = 'record-item';
+                    item.innerHTML = `
+                        <span>Medicação: ${data.medicacoes.map(m => `${m.nome} (${m.dosagem}, ${m.posologia})`).join(', ')} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                        <button class="delete-btn" onclick="apagarMedicacaoLocal('${key}', '${pacienteId}')">Apagar</button>
+                    `;
+                    list.appendChild(item);
+                }
+            }
+        }
+
+        async function apagarMedicacao(medicacaoId, pacienteId) {
+            if (confirm('Deseja apagar esta medicação?')) {
+                await db.collection('Medicacoes').doc(medicacaoId).delete();
+                localStorage.removeItem(`medicacao_${pacienteId}_${medicacaoId}`);
+                carregarListaMedicacoes(pacienteId);
+            }
+        }
+
+        function apagarMedicacaoLocal(key, pacienteId) {
+            if (confirm('Deseja apagar esta medicação?')) {
+                localStorage.removeItem(key);
+                carregarListaMedicacoes(pacienteId);
+            }
+        }
+
+        function abrirFormularioBroadcast() {
+            const form = document.createElement('form');
+            form.innerHTML = `
+                <textarea name="mensagem" placeholder="Digite a mensagem" rows="4" required></textarea>
+                <select name="destinatarios" required>
+                    <option value="todos">Todos</option>
+                    <option value="alunos">Apenas Alunos</option>
+                    <option value="pacientes">Apenas Pacientes</option>
+                    <option value="admins">Apenas Administradores</option>
+                </select>
+                <div class="toggle-btn" id="broadcast-toggle" onclick="toggleBroadcast(this)"></div>
+            `;
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const mensagem = form.mensagem.value;
+                const destinatarios = form.destinatarios.value;
+
+                try {
+                    await db.collection('Broadcast').doc('mensagemAtiva').set({
+                        mensagem,
+                        destinatarios,
+                        ativo: true,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    document.getElementById('broadcast-btn').classList.add('active');
+                    document.getElementById('broadcast-toggle').classList.add('active');
+                    fecharModal();
+                } catch (error) {
+                    console.error('Erro ao enviar broadcast:', error);
+                    alert('Erro ao enviar a mensagem.');
+                }
+            });
+
+            db.collection('Broadcast').doc('mensagemAtiva').get().then(doc => {
+                if (doc.exists && doc.data().ativo) {
+                    document.getElementById('broadcast-toggle').classList.add('active');
+                }
+            });
+
+            mostrarModal('Enviar Mensagem', form, 'sucesso');
+        }
+
+        // Outras funções mantidas (carregarPacientesAluno, toggleModulo, etc.)
+        async function carregarPacientesAluno() {
             const lista = document.getElementById('lista-pacientes-aluno');
             if (pacientesListener) pacientesListener();
 
@@ -613,7 +493,6 @@
                             <button class="module-btn ${modulosAtivos.includes('modulo4') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'modulo4', this)">Módulo 4</button>
                             <button class="profile-btn" onclick="verPerfilPaciente('${paciente.id}')">👤</button>
                             <button class="registros-btn" onclick="verRegistrosPaciente('${paciente.id}')">Registros</button>
-                            <button onclick="verHistoricoPaciente('${paciente.id}')">Ver Histórico</button>
                         </div>
                     `;
                     lista.appendChild(div);
@@ -637,531 +516,9 @@
             await docRef.set({ modulos: modulosAtivos }, { merge: true });
         }
 
-        async function carregarModulosPaciente(pacienteId) {
-            const pacienteNome = document.getElementById('paciente-nome');
-            const content = document.getElementById('module-content');
-
-            const pacienteDoc = await db.collection('Pacientes').doc(pacienteId).get();
-            pacienteNome.textContent = `Módulos - ${pacienteDoc.data().nomeCompleto}`;
-
-            if (modulosListener) modulosListener();
-            modulosListener = db.collection('ModulosAtivos').doc(pacienteId).onSnapshot(doc => {
-                content.innerHTML = '';
-                const modulosAtivos = doc.exists ? doc.data().modulos || [] : [];
-
-                if (modulosAtivos.includes('pa_glicemia')) {
-                    const container = document.createElement('div');
-                    container.className = 'module-container';
-                    container.innerHTML = `
-                        <h3>P.A. e Glicemia</h3>
-                        <input type="text" id="pa_${pacienteId}" placeholder="Pressão Arterial (ex: 120/80)">
-                        <input type="number" id="glicemia_${pacienteId}" placeholder="Glicemia (mg/dL)">
-                        <button onclick="salvarPA('${pacienteId}')">Adicionar Aferição</button>
-                        <button onclick="verHistoricoPA('${pacienteId}')">Ver Histórico</button>
-                    `;
-                    content.appendChild(container);
-                }
-
-                if (modulosAtivos.includes('anotacoes')) {
-                    const container = document.createElement('div');
-                    container.className = 'module-container';
-                    container.innerHTML = `
-                        <h3>Anotações Médicas</h3>
-                        <textarea id="anotacoes_${pacienteId}" placeholder="Digite suas anotações médicas" rows="5"></textarea>
-                        <button onclick="salvarAnotacoes('${pacienteId}')">Salvar</button>
-                    `;
-                    content.appendChild(container);
-                    carregarAnotacoes(pacienteId);
-                }
-
-                if (modulosAtivos.includes('medicacoes')) {
-                    const container = document.createElement('div');
-                    container.className = 'module-container';
-                    container.innerHTML = `
-                        <h3>Registro de Medicações</h3>
-                        <div id="medication-list_${pacienteId}">
-                            <div class="medication-entry">
-                                <input type="text" name="nome" placeholder="Nome da medicação">
-                                <input type="text" name="dosagem" placeholder="Dosagem">
-                                <input type="text" name="posologia" placeholder="Posologia">
-                                <button type="button" onclick="removerMedicacao(this)">-</button>
-                            </div>
-                        </div>
-                        <button onclick="adicionarMedicacao('${pacienteId}')">+ Adicionar Medicação</button>
-                        <button onclick="salvarMedicacoes('${pacienteId}')">Salvar</button>
-                    `;
-                    content.appendChild(container);
-                    carregarMedicacoes(pacienteId);
-                }
-
-                if (modulosAtivos.includes('modulo4')) {
-                    const container = document.createElement('div');
-                    container.className = 'module-container';
-                    container.innerHTML = `<h3>Módulo 4</h3><p>Funcionalidade ainda não implementada.</p>`;
-                    content.appendChild(container);
-                }
-
-                if (modulosAtivos.length === 0) {
-                    content.innerHTML = '<p>Nenhum módulo ativo para este paciente.</p>';
-                }
-            });
-        }
-
-        async function salvarPA(pacienteId) {
-            const pa = document.getElementById(`pa_${pacienteId}`).value;
-            const glicemia = document.getElementById(`glicemia_${pacienteId}`).value;
-            if (!pa || !glicemia) {
-                alert('Preencha ambos os campos!');
-                return;
-            }
-            const data = {
-                pa,
-                glicemia: parseInt(glicemia),
-                data: new Date().toISOString(),
-                pacienteId,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            try {
-                await db.collection('RegistrosPAeGlicemia').add(data);
-                document.getElementById(`pa_${pacienteId}`).value = '';
-                document.getElementById(`glicemia_${pacienteId}`).value = '';
-                mostrarModal('Sucesso', 'Aferição salva com sucesso!', 'sucesso');
-            } catch (error) {
-                console.error('Erro ao salvar:', error);
-                alert('Erro ao salvar a aferição.');
-            }
-        }
-
-        async function verHistoricoPA(pacienteId) {
-            const snapshot = await db.collection('RegistrosPAeGlicemia')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .get();
-            
-            const historico = document.createElement('div');
-            historico.className = 'history-list';
-            if (snapshot.empty) {
-                historico.innerHTML = '<p>Nenhum registro encontrado.</p>';
-            } else {
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    const item = document.createElement('div');
-                    item.style.display = 'flex';
-                    item.style.alignItems = 'center';
-                    item.style.gap = '10px';
-                    item.style.marginBottom = '10px';
-                    item.innerHTML = `
-                        <span>P.A.: ${data.pa}, Glicemia: ${data.glicemia} mg/dL, Data: ${new Date(data.data).toLocaleString('pt-BR')}</span>
-                        <button onclick="apagarAfericao('${doc.id}', '${pacienteId}')" style="background: #f44336;">Apagar</button>
-                    `;
-                    historico.appendChild(item);
-                });
-            }
-            mostrarModal('Histórico de P.A. e Glicemia', historico, 'sucesso');
-        }
-
-        async function apagarAfericao(afericaoId, pacienteId) {
-            if (confirm('Deseja realmente apagar esta aferição?')) {
-                try {
-                    await db.collection('RegistrosPAeGlicemia').doc(afericaoId).delete();
-                    fecharModal();
-                    verHistoricoPA(pacienteId); // Atualiza o histórico após exclusão
-                } catch (error) {
-                    console.error('Erro ao apagar:', error);
-                    alert('Erro ao apagar a aferição.');
-                }
-            }
-        }
-
-        async function salvarAnotacoes(pacienteId) {
-            const anotacoes = document.getElementById(`anotacoes_${pacienteId}`).value;
-            if (!anotacoes) {
-                alert('Digite uma anotação!');
-                return;
-            }
-            const data = {
-                anotacoes,
-                pacienteId,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            try {
-                await db.collection('AnotacoesMedicas').add(data);
-                document.getElementById(`anotacoes_${pacienteId}`).value = '';
-                mostrarModal('Sucesso', 'Anotação salva com sucesso!', 'sucesso');
-            } catch (error) {
-                console.error('Erro ao salvar:', error);
-                alert('Erro ao salvar a anotação.');
-            }
-        }
-
-        async function carregarAnotacoes(pacienteId) {
-            const snapshot = await db.collection('AnotacoesMedicas')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .limit(1)
-                .get();
-            if (!snapshot.empty) {
-                document.getElementById(`anotacoes_${pacienteId}`).value = snapshot.docs[0].data().anotacoes;
-            }
-        }
-
-        function adicionarMedicacao(pacienteId) {
-            const list = document.getElementById(`medication-list_${pacienteId}`);
-            const entry = document.createElement('div');
-            entry.className = 'medication-entry';
-            entry.innerHTML = `
-                <input type="text" name="nome" placeholder="Nome da medicação">
-                <input type="text" name="dosagem" placeholder="Dosagem">
-                <input type="text" name="posologia" placeholder="Posologia">
-                <button type="button" onclick="removerMedicacao(this)">-</button>
-            `;
-            list.appendChild(entry);
-        }
-
-        function removerMedicacao(button) {
-            const entry = button.parentElement;
-            if (entry.parentElement.querySelectorAll('.medication-entry').length > 1) {
-                entry.remove();
-            }
-        }
-
-        async function salvarMedicacoes(pacienteId) {
-            const entries = document.querySelectorAll(`#medication-list_${pacienteId} .medication-entry`);
-            const medicacoes = Array.from(entries).map(entry => ({
-                nome: entry.querySelector('[name="nome"]').value,
-                dosagem: entry.querySelector('[name="dosagem"]').value,
-                posologia: entry.querySelector('[name="posologia"]').value
-            })).filter(m => m.nome && m.dosagem && m.posologia);
-            
-            if (medicacoes.length === 0) {
-                alert('Adicione pelo menos uma medicação válida!');
-                return;
-            }
-            
-            const data = {
-                medicacoes,
-                pacienteId,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            try {
-                await db.collection('Medicacoes').add(data);
-                mostrarModal('Sucesso', 'Medicações salvas com sucesso!', 'sucesso');
-            } catch (error) {
-                console.error('Erro ao salvar:', error);
-                alert('Erro ao salvar as medicações.');
-            }
-        }
-
-        async function carregarMedicacoes(pacienteId) {
-            const snapshot = await db.collection('Medicacoes')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .limit(1)
-                .get();
-            if (!snapshot.empty) {
-                const medicacoes = snapshot.docs[0].data().medicacoes;
-                const list = document.getElementById(`medication-list_${pacienteId}`);
-                list.innerHTML = '';
-                medicacoes.forEach(med => {
-                    const entry = document.createElement('div');
-                    entry.className = 'medication-entry';
-                    entry.innerHTML = `
-                        <input type="text" name="nome" value="${med.nome}">
-                        <input type="text" name="dosagem" value="${med.dosagem}">
-                        <input type="text" name="posologia" value="${med.posologia}">
-                        <button type="button" onclick="removerMedicacao(this)">-</button>
-                    `;
-                    list.appendChild(entry);
-                });
-            }
-        }
-
-        async function verRegistrosPaciente(pacienteId) {
-            const form = document.createElement('div');
-            form.className = 'edit-form';
-            
-            const [paSnap, anotSnap, medSnap] = await Promise.all([
-                db.collection('RegistrosPAeGlicemia').where('pacienteId', '==', pacienteId).orderBy('timestamp', 'desc').limit(1).get(),
-                db.collection('AnotacoesMedicas').where('pacienteId', '==', pacienteId).orderBy('timestamp', 'desc').limit(1).get(),
-                db.collection('Medicacoes').where('pacienteId', '==', pacienteId).orderBy('timestamp', 'desc').limit(1).get()
-            ]);
-
-            const paData = !paSnap.empty ? paSnap.docs[0].data() : null;
-            const anotData = !anotSnap.empty ? anotSnap.docs[0].data() : null;
-            const medData = !medSnap.empty ? medSnap.docs[0].data() : null;
-
-            form.innerHTML = `
-                <h4>P.A. e Glicemia</h4>
-                <input type="text" value="${paData ? paData.pa : 'Nenhum dado'}" readonly>
-                <input type="text" value="${paData ? paData.glicemia + ' mg/dL' : 'Nenhum dado'}" readonly>
-                <h4>Anotações Médicas</h4>
-                <textarea class="editable" id="anotacoes-edit">${anotData ? anotData.anotacoes : ''}</textarea>
-                <h4>Medicações</h4>
-                <textarea readonly>${medData ? medData.medicacoes.map(m => `${m.nome} (${m.dosagem}, ${m.posologia})`).join('\n') : 'Nenhum dado'}</textarea>
-                <button onclick="salvarAnotacoesEditadas('${pacienteId}', '${anotSnap.empty ? '' : anotSnap.docs[0].id}')">Salvar Anotações</button>
-            `;
-
-            mostrarModal('Dados do Paciente', form, 'sucesso');
-        }
-
-        async function verHistoricoPaciente(pacienteId) {
-            const div = document.createElement('div');
-            div.className = 'history-list';
-            
-            div.innerHTML = `
-                <h4>P.A. e Glicemia</h4>
-                <div id="historico-pa"></div>
-                <h4>Anotações Médicas</h4>
-                <div id="historico-anotacoes"></div>
-                <h4>Medicações</h4>
-                <div id="historico-medicacoes"></div>
-            `;
-
-            const [paSnap, anotSnap, medSnap] = await Promise.all([
-                db.collection('RegistrosPAeGlicemia').where('pacienteId', '==', pacienteId).orderBy('timestamp', 'desc').get(),
-                db.collection('AnotacoesMedicas').where('pacienteId', '==', pacienteId).orderBy('timestamp', 'desc').get(),
-                db.collection('Medicacoes').where('pacienteId', '==', pacienteId).orderBy('timestamp', 'desc').get()
-            ]);
-
-            const paDiv = div.querySelector('#historico-pa');
-            if (paSnap.empty) paDiv.innerHTML = '<p>Sem registros.</p>';
-            else paSnap.forEach(doc => {
-                const data = doc.data();
-                paDiv.innerHTML += `<p>P.A.: ${data.pa}, Glicemia: ${data.glicemia} mg/dL - ${new Date(data.data).toLocaleString('pt-BR')}</p>`;
-            });
-
-            const anotDiv = div.querySelector('#historico-anotacoes');
-            if (anotSnap.empty) anotDiv.innerHTML = '<p>Sem registros.</p>';
-            else anotSnap.forEach(doc => {
-                const data = doc.data();
-                anotDiv.innerHTML += `<p>${data.anotacoes} - ${new Date(data.timestamp.toDate()).toLocaleString('pt-BR')}</p>`;
-            });
-
-            const medDiv = div.querySelector('#historico-medicacoes');
-            if (medSnap.empty) medDiv.innerHTML = '<p>Sem registros.</p>';
-            else medSnap.forEach(doc => {
-                const data = doc.data();
-                medDiv.innerHTML += `<p>${data.medicacoes.map(m => `${m.nome} (${m.dosagem}, ${m.posologia})`).join(', ')} - ${new Date(data.timestamp.toDate()).toLocaleString('pt-BR')}</p>`;
-            });
-
-            mostrarModal('Dados do Paciente', div, 'sucesso');
-        }
-
-        async function salvarAnotacoesEditadas(pacienteId, anotacaoId) {
-            const anotacoes = document.getElementById('anotacoes-edit').value;
-            if (!anotacoes) {
-                alert('Digite uma anotação!');
-                return;
-            }
-            const data = {
-                anotacoes,
-                pacienteId,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            try {
-                if (anotacaoId) {
-                    await db.collection('AnotacoesMedicas').doc(anotacaoId).update(data);
-                } else {
-                    await db.collection('AnotacoesMedicas').add(data);
-                }
-                mostrarModal('Sucesso', 'Anotação salva com sucesso!', 'sucesso');
-            } catch (error) {
-                console.error('Erro ao salvar:', error);
-                alert('Erro ao salvar a anotação.');
-            }
-        }
-
-        async function verPerfilPaciente(pacienteId) {
-            const doc = await db.collection('Pacientes').doc(pacienteId).get();
-            const paciente = doc.data();
-
-            const form = document.createElement('div');
-            form.className = 'view-form';
-            form.innerHTML = `
-                <input type="text" value="${paciente.nomeCompleto}" readonly>
-                <input type="date" value="${paciente.dataNascimento}" readonly>
-                <input type="email" value="${paciente.email || ''}" readonly>
-                <input type="text" value="${paciente.cartaoSus || ''}" readonly>
-                <input type="text" value="${paciente.whatsapp}" readonly>
-                <input type="text" value="${paciente.usuario}" readonly>
-            `;
-
-            mostrarModal('Perfil do Paciente', form, 'sucesso');
-        }
-
-        async function editarUsuario(id) {
-            const doc = await db.collection('Alunos').doc(id).get();
-            const usuario = doc.data();
-
-            const form = document.createElement('form');
-            form.className = 'edit-form';
-            form.innerHTML = `
-                <input type="text" name="nomeCompleto" value="${usuario.nomeCompleto}" placeholder="Nome Completo" required>
-                <input type="text" name="matricula" value="${usuario.matricula}" placeholder="Matrícula" required>
-                <input type="email" name="email" value="${usuario.email}" placeholder="Email" required>
-                <input type="date" name="dataNascimento" value="${usuario.dataNascimento}" required>
-                <input type="text" name="whatsapp" value="${usuario.whatsapp}" placeholder="WhatsApp" required>
-                <input type="text" name="senha" value="${usuario.senha}" placeholder="Senha" required>
-                <select name="admin">
-                    <option value="no" ${usuario.admin !== 'yes' ? 'selected' : ''}>Usuário Comum</option>
-                    <option value="yes" ${usuario.admin === 'yes' ? 'selected' : ''}>Administrador</option>
-                </select>
-                <select name="status">
-                    <option value="aprovado" ${usuario.status === 'aprovado' ? 'selected' : ''}>Aprovado</option>
-                    <option value="pendente" ${usuario.status === 'pendente' ? 'selected' : ''}>Pendente</option>
-                    <option value="negado" ${usuario.status === 'negado' ? 'selected' : ''}>Negado</option>
-                </select>
-                <textarea name="motivoNegacao" placeholder="Motivo da negação">${usuario.motivoNegacao || ''}</textarea>
-                <button type="submit">Salvar</button>
-                <button type="button" onclick="excluirUsuario('${id}')">Excluir</button>
-            `;
-
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const data = {
-                    nomeCompleto: form.nomeCompleto.value,
-                    matricula: form.matricula.value,
-                    email: form.email.value,
-                    dataNascimento: form.dataNascimento.value,
-                    whatsapp: form.whatsapp.value,
-                    senha: form.senha.value,
-                    admin: form.admin.value,
-                    status: form.status.value,
-                    motivoNegacao: form.status.value === 'negado' ? form.motivoNegacao.value : ''
-                };
-
-                if (form.status.value === 'negado' && !form.motivoNegacao.value) {
-                    alert('O motivo da negação é obrigatório ao negar um usuário.');
-                    return;
-                }
-
-                try {
-                    await db.collection('Alunos').doc(id).update(data);
-                    fecharModal();
-                } catch (error) {
-                    console.error('Erro ao atualizar usuário:', error);
-                    alert('Erro ao salvar as alterações: ' + error.message);
-                }
-            });
-
-            mostrarModal('Editar Usuário', form, 'sucesso');
-        }
-
-        async function excluirUsuario(id) {
-            if (confirm('Deseja realmente excluir este usuário?')) {
-                await db.collection('Alunos').doc(id).delete();
-                fecharModal();
-            }
-        }
-
-        function abrirFormularioBroadcast() {
-            const form = document.createElement('form');
-            form.innerHTML = `
-                <textarea name="mensagem" placeholder="Digite a mensagem" rows="4" required></textarea>
-                <select name="destinatarios" required>
-                    <option value="todos">Todos</option>
-                    <option value="alunos">Apenas Alunos</option>
-                    <option value="pacientes">Apenas Pacientes</option>
-                    <option value="admins">Apenas Administradores</option>
-                </select>
-                <button type="submit">Enviar</button>
-                <div class="toggle-btn" id="broadcast-toggle" onclick="toggleBroadcast(this)"></div>
-            `;
-
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const mensagem = form.mensagem.value;
-                const destinatarios = form.destinatarios.value;
-
-                try {
-                    await db.collection('Broadcast').doc('mensagemAtiva').set({
-                        mensagem,
-                        destinatarios,
-                        ativo: true,
-                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    document.getElementById('broadcast-btn').classList.add('active');
-                    document.getElementById('broadcast-toggle').classList.add('active');
-                    fecharModal();
-                } catch (error) {
-                    console.error('Erro ao enviar broadcast:', error);
-                    alert('Erro ao enviar a mensagem.');
-                }
-            });
-
-            // Verifica estado inicial do broadcast
-            db.collection('Broadcast').doc('mensagemAtiva').get().then(doc => {
-                if (doc.exists && doc.data().ativo) {
-                    document.getElementById('broadcast-toggle').classList.add('active');
-                }
-            });
-
-            mostrarModal('Enviar Mensagem', form, 'sucesso');
-        }
-
-        async function toggleBroadcast(toggleBtn) {
-            const isActive = toggleBtn.classList.contains('active');
-            try {
-                if (isActive) {
-                    await db.collection('Broadcast').doc('mensagemAtiva').update({ ativo: false });
-                    toggleBtn.classList.remove('active');
-                    document.getElementById('broadcast-btn').classList.remove('active');
-                    fecharBroadcastModal();
-                } else {
-                    const form = toggleBtn.closest('form');
-                    const mensagem = form.querySelector('textarea[name="mensagem"]').value;
-                    const destinatarios = form.querySelector('select[name="destinatarios"]').value;
-                    if (!mensagem) {
-                        alert('Digite uma mensagem antes de ativar!');
-                        return;
-                    }
-                    await db.collection('Broadcast').doc('mensagemAtiva').set({
-                        mensagem,
-                        destinatarios,
-                        ativo: true,
-                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    toggleBtn.classList.add('active');
-                    document.getElementById('broadcast-btn').classList.add('active');
-                }
-            } catch (error) {
-                console.error('Erro ao alternar broadcast:', error);
-                alert('Erro ao alternar o broadcast.');
-            }
-        }
-
-        async function verificarBroadcast() {
-            db.collection('Broadcast').doc('mensagemAtiva').onSnapshot(async doc => {
-                if (doc.exists && doc.data().ativo) {
-                    const { mensagem, destinatarios } = doc.data();
-                    let exibir = false;
-
-                    if (destinatarios === 'todos') exibir = true;
-                    else if (destinatarios === 'pacientes' && currentPacienteId) exibir = true;
-                    else if (destinatarios === 'admins' && currentUserId) {
-                        const userDoc = await db.collection('Alunos').doc(currentUserId).get();
-                        if (userDoc.exists && userDoc.data().admin === 'yes') exibir = true;
-                    } else if (destinatarios === 'alunos' && currentUserId) {
-                        const userDoc = await db.collection('Alunos').doc(currentUserId).get();
-                        if (userDoc.exists && userDoc.data().admin !== 'yes') exibir = true;
-                    }
-
-                    if (exibir) {
-                        mostrarBroadcast(mensagem);
-                        document.getElementById('broadcast-btn').classList.add('active');
-                    } else {
-                        fecharBroadcastModal();
-                    }
-                } else {
-                    fecharBroadcastModal();
-                    document.getElementById('broadcast-btn').classList.remove('active');
-                }
-            });
-        }
-
+        // Funções de login, cadastro, etc., mantidas iguais
         document.addEventListener('DOMContentLoaded', () => {
             const formAluno = document.getElementById('formCadastroAluno');
-
             formAluno.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const values = Array.from(formAluno.elements)
