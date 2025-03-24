@@ -78,13 +78,13 @@
 
         input, select, textarea {
             width: 100%;
-            padding: 8px; /* Reduzido de 10px */
-            margin: 6px 0; /* Reduzido de 8px */
+            padding: 8px;
+            margin: 6px 0;
             background: #2c3e50;
             border: none;
             border-radius: 5px;
             color: white;
-            font-size: 0.9rem; /* Reduzido */
+            font-size: 0.9rem;
         }
 
         .hidden {
@@ -103,14 +103,14 @@
             left: 50%;
             transform: translate(-50%, -50%);
             background: rgba(26, 42, 74, 1);
-            padding: 1.5rem; /* Reduzido de 2rem */
+            padding: 1.5rem;
             border-radius: 10px;
             text-align: center;
             z-index: 1000;
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
             color: white;
             width: 90%;
-            max-width: 700px; /* Reduzido de 900px */
+            max-width: 700px;
         }
 
         .modal.pendente {
@@ -217,12 +217,12 @@
         .edit-form, .view-form {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px; /* Reduzido de 15px */
+            gap: 10px;
         }
 
         .edit-form textarea, .view-form textarea {
             grid-column: span 2;
-            height: 80px; /* Altura fixa para evitar rolagem */
+            height: 80px;
         }
 
         .edit-form button, .view-form button {
@@ -230,7 +230,7 @@
         }
 
         .close-btn {
-            margin-top: 15px; /* Reduzido de 20px */
+            margin-top: 15px;
         }
 
         .medication-entry {
@@ -356,7 +356,7 @@
     <div id="tela-modulos" class="container hidden">
         <h1 id="paciente-nome">Módulos</h1>
         <div id="module-content"></div>
-        <button class="back-btn" onclick="mostrarTela('area-aluno')">Voltar</button>
+        <button class="back-btn" onclick="mostrarTela('tela-inicial')">Sair</button>
     </div>
 
     <!-- Painel do Administrador -->
@@ -398,7 +398,7 @@
         let currentUserId = null;
         let pacientesListener = null;
         let usuariosListener = null;
-        let selectedPacienteId = null;
+        let currentPacienteId = null;
 
         try {
             firebase.initializeApp(firebaseConfig);
@@ -419,6 +419,8 @@
             document.getElementById(idTela).classList.remove('hidden');
             if (idTela === 'area-aluno') {
                 carregarPacientesAluno();
+            } else if (idTela === 'tela-modulos' && currentPacienteId) {
+                carregarModulosPaciente(currentPacienteId);
             }
         }
 
@@ -533,13 +535,16 @@
             const lista = document.getElementById('lista-pacientes-aluno');
             if (pacientesListener) pacientesListener();
 
-            pacientesListener = db.collection('Pacientes').onSnapshot(snapshot => {
+            pacientesListener = db.collection('Pacientes').onSnapshot(async snapshot => {
                 lista.innerHTML = '';
                 const pacientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
                 pacientes.sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
 
-                pacientes.forEach(paciente => {
+                for (const paciente of pacientes) {
+                    const modulosDoc = await db.collection('ModulosAtivos').doc(paciente.id).get();
+                    const modulosAtivos = modulosDoc.exists ? modulosDoc.data().modulos || [] : [];
+
                     const div = document.createElement('div');
                     div.className = 'user-item';
                     div.innerHTML = `
@@ -547,43 +552,103 @@
                             <strong>${paciente.nomeCompleto}</strong>
                         </div>
                         <div>
-                            <button class="module-btn" onclick="ativarModuloPA('${paciente.id}', this)">P.A./Glicemia</button>
-                            <button class="module-btn" onclick="ativarModuloAnotacoes('${paciente.id}', this)">Anotações</button>
-                            <button class="module-btn" onclick="ativarModuloMedicacoes('${paciente.id}', this)">Medicações</button>
-                            <button class="module-btn" onclick="ativarModulo4('${paciente.id}', this)">Módulo 4</button>
+                            <button class="module-btn ${modulosAtivos.includes('pa_glicemia') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'pa_glicemia', this)">P.A./Glicemia</button>
+                            <button class="module-btn ${modulosAtivos.includes('anotacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'anotacoes', this)">Anotações</button>
+                            <button class="module-btn ${modulosAtivos.includes('medicacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'medicacoes', this)">Medicações</button>
+                            <button class="module-btn ${modulosAtivos.includes('modulo4') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'modulo4', this)">Módulo 4</button>
                             <button class="profile-btn" onclick="verPerfilPaciente('${paciente.id}')">👤</button>
                         </div>
                     `;
                     lista.appendChild(div);
-                });
+                }
             });
         }
 
-        async function ativarModuloPA(pacienteId, button) {
-            button.classList.add('active');
-            selectedPacienteId = pacienteId;
+        async function toggleModulo(pacienteId, modulo, button) {
+            const docRef = db.collection('ModulosAtivos').doc(pacienteId);
+            const doc = await docRef.get();
+            let modulosAtivos = doc.exists ? doc.data().modulos || [] : [];
+
+            if (modulosAtivos.includes(modulo)) {
+                modulosAtivos = modulosAtivos.filter(m => m !== modulo);
+                button.classList.remove('active');
+            } else {
+                modulosAtivos.push(modulo);
+                button.classList.add('active');
+            }
+
+            await docRef.set({ modulos: modulosAtivos }, { merge: true });
+        }
+
+        async function carregarModulosPaciente(pacienteId) {
             const paciente = (await db.collection('Pacientes').doc(pacienteId).get()).data();
             document.getElementById('paciente-nome').textContent = `Módulos - ${paciente.nomeCompleto}`;
             const content = document.getElementById('module-content');
-            const container = document.createElement('div');
-            container.className = 'module-container';
-            container.innerHTML = `
-                <h3>P.A. e Glicemia</h3>
-                <input type="text" id="pa" placeholder="Pressão Arterial (ex: 120/80)" required>
-                <input type="number" id="glicemia" placeholder="Glicemia (mg/dL)" required>
-                <input type="datetime-local" id="data" required>
-                <button onclick="salvarPA('${pacienteId}')">Salvar</button>
-            `;
             content.innerHTML = '';
-            content.appendChild(container);
-            mostrarTela('tela-modulos');
+
+            const modulosDoc = await db.collection('ModulosAtivos').doc(pacienteId).get();
+            const modulosAtivos = modulosDoc.exists ? modulosDoc.data().modulos || [] : [];
+
+            if (modulosAtivos.includes('pa_glicemia')) {
+                const container = document.createElement('div');
+                container.className = 'module-container';
+                container.innerHTML = `
+                    <h3>P.A. e Glicemia</h3>
+                    <input type="text" id="pa_${pacienteId}" placeholder="Pressão Arterial (ex: 120/80)" required>
+                    <input type="number" id="glicemia_${pacienteId}" placeholder="Glicemia (mg/dL)" required>
+                    <input type="datetime-local" id="data_${pacienteId}" required>
+                    <button onclick="salvarPA('${pacienteId}')">Salvar</button>
+                `;
+                content.appendChild(container);
+            }
+
+            if (modulosAtivos.includes('anotacoes')) {
+                const container = document.createElement('div');
+                container.className = 'module-container';
+                container.innerHTML = `
+                    <h3>Anotações Médicas</h3>
+                    <textarea id="anotacoes_${pacienteId}" placeholder="Digite suas anotações médicas" rows="5" required></textarea>
+                    <button onclick="salvarAnotacoes('${pacienteId}')">Salvar</button>
+                `;
+                content.appendChild(container);
+            }
+
+            if (modulosAtivos.includes('medicacoes')) {
+                const container = document.createElement('div');
+                container.className = 'module-container';
+                container.innerHTML = `
+                    <h3>Registro de Medicações</h3>
+                    <div id="medication-list_${pacienteId}">
+                        <div class="medication-entry">
+                            <input type="text" name="nome" placeholder="Nome da medicação" required>
+                            <input type="text" name="dosagem" placeholder="Dosagem" required>
+                            <input type="text" name="posologia" placeholder="Posologia" required>
+                            <button type="button" onclick="removerMedicacao(this)">-</button>
+                        </div>
+                    </div>
+                    <button onclick="adicionarMedicacao('${pacienteId}')">+ Adicionar Medicação</button>
+                    <button onclick="salvarMedicacoes('${pacienteId}')">Salvar</button>
+                `;
+                content.appendChild(container);
+            }
+
+            if (modulosAtivos.includes('modulo4')) {
+                const container = document.createElement('div');
+                container.className = 'module-container';
+                container.innerHTML = `<h3>Módulo 4</h3><p>Funcionalidade ainda não implementada.</p>`;
+                content.appendChild(container);
+            }
+
+            if (modulosAtivos.length === 0) {
+                content.innerHTML = '<p>Nenhum módulo ativo para este paciente.</p>';
+            }
         }
 
         async function salvarPA(pacienteId) {
             const data = {
-                pa: document.getElementById('pa').value,
-                glicemia: parseInt(document.getElementById('glicemia').value),
-                data: document.getElementById('data').value,
+                pa: document.getElementById(`pa_${pacienteId}`).value,
+                glicemia: parseInt(document.getElementById(`glicemia_${pacienteId}`).value),
+                data: document.getElementById(`data_${pacienteId}`).value,
                 pacienteId,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             };
@@ -596,27 +661,9 @@
             }
         }
 
-        async function ativarModuloAnotacoes(pacienteId, button) {
-            button.classList.add('active');
-            selectedPacienteId = pacienteId;
-            const paciente = (await db.collection('Pacientes').doc(pacienteId).get()).data();
-            document.getElementById('paciente-nome').textContent = `Módulos - ${paciente.nomeCompleto}`;
-            const content = document.getElementById('module-content');
-            const container = document.createElement('div');
-            container.className = 'module-container';
-            container.innerHTML = `
-                <h3>Anotações Médicas</h3>
-                <textarea id="anotacoes" placeholder="Digite suas anotações médicas" rows="5" required></textarea>
-                <button onclick="salvarAnotacoes('${pacienteId}')">Salvar</button>
-            `;
-            content.innerHTML = '';
-            content.appendChild(container);
-            mostrarTela('tela-modulos');
-        }
-
         async function salvarAnotacoes(pacienteId) {
             const data = {
-                anotacoes: document.getElementById('anotacoes').value,
+                anotacoes: document.getElementById(`anotacoes_${pacienteId}`).value,
                 pacienteId,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             };
@@ -629,34 +676,8 @@
             }
         }
 
-        async function ativarModuloMedicacoes(pacienteId, button) {
-            button.classList.add('active');
-            selectedPacienteId = pacienteId;
-            const paciente = (await db.collection('Pacientes').doc(pacienteId).get()).data();
-            document.getElementById('paciente-nome').textContent = `Módulos - ${paciente.nomeCompleto}`;
-            const content = document.getElementById('module-content');
-            const container = document.createElement('div');
-            container.className = 'module-container';
-            container.innerHTML = `
-                <h3>Registro de Medicações</h3>
-                <div id="medication-list">
-                    <div class="medication-entry">
-                        <input type="text" name="nome" placeholder="Nome da medicação" required>
-                        <input type="text" name="dosagem" placeholder="Dosagem" required>
-                        <input type="text" name="posologia" placeholder="Posologia" required>
-                        <button type="button" onclick="removerMedicacao(this)">-</button>
-                    </div>
-                </div>
-                <button onclick="adicionarMedicacao()">+ Adicionar Medicação</button>
-                <button onclick="salvarMedicacoes('${pacienteId}')">Salvar</button>
-            `;
-            content.innerHTML = '';
-            content.appendChild(container);
-            mostrarTela('tela-modulos');
-        }
-
-        function adicionarMedicacao() {
-            const list = document.getElementById('medication-list');
+        function adicionarMedicacao(pacienteId) {
+            const list = document.getElementById(`medication-list_${pacienteId}`);
             const entry = document.createElement('div');
             entry.className = 'medication-entry';
             entry.innerHTML = `
@@ -670,13 +691,13 @@
 
         function removerMedicacao(button) {
             const entry = button.parentElement;
-            if (document.querySelectorAll('.medication-entry').length > 1) {
+            if (entry.parentElement.querySelectorAll('.medication-entry').length > 1) {
                 entry.remove();
             }
         }
 
         async function salvarMedicacoes(pacienteId) {
-            const entries = document.querySelectorAll('.medication-entry');
+            const entries = document.querySelectorAll(`#medication-list_${pacienteId} .medication-entry`);
             const medicacoes = Array.from(entries).map(entry => ({
                 nome: entry.querySelector('[name="nome"]').value,
                 dosagem: entry.querySelector('[name="dosagem"]').value,
@@ -694,20 +715,6 @@
                 console.error('Erro ao salvar:', error);
                 alert('Erro ao salvar as medicações.');
             }
-        }
-
-        async function ativarModulo4(pacienteId, button) {
-            button.classList.add('active');
-            selectedPacienteId = pacienteId;
-            const paciente = (await db.collection('Pacientes').doc(pacienteId).get()).data();
-            document.getElementById('paciente-nome').textContent = `Módulos - ${paciente.nomeCompleto}`;
-            const content = document.getElementById('module-content');
-            const container = document.createElement('div');
-            container.className = 'module-container';
-            container.innerHTML = `<p>Funcionalidade ainda não implementada.</p>`;
-            content.innerHTML = '';
-            content.appendChild(container);
-            mostrarTela('tela-modulos');
         }
 
         async function verPerfilPaciente(pacienteId) {
@@ -884,7 +891,7 @@
                     if (matricula === 'admin' && senha === 'admin') {
                         mostrarModal('Sucesso', 'Login como administrador realizado com sucesso!', 'sucesso');
                         mostrarTela('painel-admin');
-                        carregarUsuarios(); // Carrega usuários automaticamente
+                        carregarUsuarios();
                         return;
                     }
 
@@ -911,7 +918,7 @@
                         currentUserId = alunoId;
                         if (aluno.admin === 'yes') {
                             mostrarTela('painel-admin');
-                            carregarUsuarios(); // Carrega usuários automaticamente
+                            carregarUsuarios();
                         } else {
                             if (aluno.mensagemAdmin) {
                                 document.getElementById('mensagem-admin').classList.remove('hidden');
@@ -949,7 +956,7 @@
                     
                     mostrarModal('Cadastro Realizado', `Cadastro realizado!\nUsuário: ${usuario}\nSenha: ${senha}`, 'sucesso');
                     e.target.reset();
-                    mostrarTela('tela-modulos');
+                    mostrarTela('login-paciente');
                 } catch (error) {
                     console.error('Erro no cadastro:', error);
                 }
@@ -971,6 +978,8 @@
                         return;
                     }
 
+                    const paciente = snapshot.docs[0].data();
+                    currentPacienteId = snapshot.docs[0].id;
                     mostrarModal('Sucesso', 'Login realizado com sucesso!', 'sucesso');
                     mostrarTela('tela-modulos');
                 } catch (error) {
