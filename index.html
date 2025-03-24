@@ -123,6 +123,16 @@
             color: white;
         }
 
+        .modal.broadcast {
+            background: #ffeb3b;
+            color: black;
+            position: fixed;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000;
+        }
+
         .overlay {
             display: none;
             position: fixed;
@@ -246,6 +256,15 @@
             border-radius: 5px;
             margin-top: 10px;
         }
+
+        .broadcast-btn {
+            background: #ff9800;
+            margin-bottom: 1rem;
+        }
+
+        .broadcast-btn.active {
+            background: #4caf50;
+        }
     </style>
 </head>
 <body>
@@ -255,6 +274,13 @@
         <h3 id="modal-title"></h3>
         <p id="modal-content"></p>
         <button class="close-btn" onclick="fecharModal()">Fechar</button>
+    </div>
+
+    <!-- Modal de Broadcast -->
+    <div class="modal broadcast" id="broadcast-modal">
+        <h3>Mensagem da Administração</h3>
+        <p id="broadcast-message"></p>
+        <button class="close-btn" onclick="fecharBroadcastModal()">Fechar</button>
     </div>
 
     <!-- Telas -->
@@ -356,12 +382,13 @@
     <div id="tela-modulos" class="container hidden">
         <h1 id="paciente-nome">Módulos</h1>
         <div id="module-content"></div>
-        <button class="back-btn" onclick="mostrarTela('tela-inicial')">Sair</button>
+        <button class="back-btn" onclick="sairAreaPaciente()">Sair</button>
     </div>
 
     <!-- Painel do Administrador -->
     <div id="painel-admin" class="container hidden">
         <h1>Painel do Administrador</h1>
+        <button id="broadcast-btn" class="broadcast-btn" onclick="abrirFormularioBroadcast()">📢 Enviar Mensagem</button>
         <div class="abas">
             <button onclick="mostrarAba('usuarios'); carregarUsuarios();">Usuários</button>
             <button onclick="mostrarAba('pacientes'); carregarPacientes();">Pacientes</button>
@@ -399,6 +426,7 @@
         let pacientesListener = null;
         let usuariosListener = null;
         let currentPacienteId = null;
+        let modulosListener = null;
 
         try {
             firebase.initializeApp(firebaseConfig);
@@ -422,6 +450,7 @@
             } else if (idTela === 'tela-modulos' && currentPacienteId) {
                 carregarModulosPaciente(currentPacienteId);
             }
+            verificarBroadcast();
         }
 
         function mostrarModal(titulo, conteudo, status) {
@@ -443,6 +472,15 @@
             document.getElementById('overlay').style.display = 'none';
         }
 
+        function mostrarBroadcast(mensagem) {
+            document.getElementById('broadcast-message').textContent = mensagem;
+            document.getElementById('broadcast-modal').style.display = 'block';
+        }
+
+        function fecharBroadcastModal() {
+            document.getElementById('broadcast-modal').style.display = 'none';
+        }
+
         function mostrarAba(aba) {
             document.querySelectorAll('.aba').forEach(aba => aba.classList.add('hidden'));
             document.getElementById(`aba-${aba}`).classList.remove('hidden');
@@ -450,6 +488,12 @@
 
         function sairAreaAluno() {
             if (pacientesListener) pacientesListener();
+            mostrarTela('tela-inicial');
+        }
+
+        function sairAreaPaciente() {
+            if (modulosListener) modulosListener();
+            currentPacienteId = null;
             mostrarTela('tela-inicial');
         }
 
@@ -580,68 +624,73 @@
             await docRef.set({ modulos: modulosAtivos }, { merge: true });
         }
 
-        async function carregarModulosPaciente(pacienteId) {
-            const paciente = (await db.collection('Pacientes').doc(pacienteId).get()).data();
-            document.getElementById('paciente-nome').textContent = `Módulos - ${paciente.nomeCompleto}`;
+        function carregarModulosPaciente(pacienteId) {
+            const pacienteNome = document.getElementById('paciente-nome');
             const content = document.getElementById('module-content');
-            content.innerHTML = '';
 
-            const modulosDoc = await db.collection('ModulosAtivos').doc(pacienteId).get();
-            const modulosAtivos = modulosDoc.exists ? modulosDoc.data().modulos || [] : [];
+            db.collection('Pacientes').doc(pacienteId).get().then(doc => {
+                pacienteNome.textContent = `Módulos - ${doc.data().nomeCompleto}`;
+            });
 
-            if (modulosAtivos.includes('pa_glicemia')) {
-                const container = document.createElement('div');
-                container.className = 'module-container';
-                container.innerHTML = `
-                    <h3>P.A. e Glicemia</h3>
-                    <input type="text" id="pa_${pacienteId}" placeholder="Pressão Arterial (ex: 120/80)" required>
-                    <input type="number" id="glicemia_${pacienteId}" placeholder="Glicemia (mg/dL)" required>
-                    <input type="datetime-local" id="data_${pacienteId}" required>
-                    <button onclick="salvarPA('${pacienteId}')">Salvar</button>
-                `;
-                content.appendChild(container);
-            }
+            if (modulosListener) modulosListener();
+            modulosListener = db.collection('ModulosAtivos').doc(pacienteId).onSnapshot(doc => {
+                content.innerHTML = '';
+                const modulosAtivos = doc.exists ? doc.data().modulos || [] : [];
 
-            if (modulosAtivos.includes('anotacoes')) {
-                const container = document.createElement('div');
-                container.className = 'module-container';
-                container.innerHTML = `
-                    <h3>Anotações Médicas</h3>
-                    <textarea id="anotacoes_${pacienteId}" placeholder="Digite suas anotações médicas" rows="5" required></textarea>
-                    <button onclick="salvarAnotacoes('${pacienteId}')">Salvar</button>
-                `;
-                content.appendChild(container);
-            }
+                if (modulosAtivos.includes('pa_glicemia')) {
+                    const container = document.createElement('div');
+                    container.className = 'module-container';
+                    container.innerHTML = `
+                        <h3>P.A. e Glicemia</h3>
+                        <input type="text" id="pa_${pacienteId}" placeholder="Pressão Arterial (ex: 120/80)" required>
+                        <input type="number" id="glicemia_${pacienteId}" placeholder="Glicemia (mg/dL)" required>
+                        <input type="datetime-local" id="data_${pacienteId}" required>
+                        <button onclick="salvarPA('${pacienteId}')">Salvar</button>
+                    `;
+                    content.appendChild(container);
+                }
 
-            if (modulosAtivos.includes('medicacoes')) {
-                const container = document.createElement('div');
-                container.className = 'module-container';
-                container.innerHTML = `
-                    <h3>Registro de Medicações</h3>
-                    <div id="medication-list_${pacienteId}">
-                        <div class="medication-entry">
-                            <input type="text" name="nome" placeholder="Nome da medicação" required>
-                            <input type="text" name="dosagem" placeholder="Dosagem" required>
-                            <input type="text" name="posologia" placeholder="Posologia" required>
-                            <button type="button" onclick="removerMedicacao(this)">-</button>
+                if (modulosAtivos.includes('anotacoes')) {
+                    const container = document.createElement('div');
+                    container.className = 'module-container';
+                    container.innerHTML = `
+                        <h3>Anotações Médicas</h3>
+                        <textarea id="anotacoes_${pacienteId}" placeholder="Digite suas anotações médicas" rows="5" required></textarea>
+                        <button onclick="salvarAnotacoes('${pacienteId}')">Salvar</button>
+                    `;
+                    content.appendChild(container);
+                }
+
+                if (modulosAtivos.includes('medicacoes')) {
+                    const container = document.createElement('div');
+                    container.className = 'module-container';
+                    container.innerHTML = `
+                        <h3>Registro de Medicações</h3>
+                        <div id="medication-list_${pacienteId}">
+                            <div class="medication-entry">
+                                <input type="text" name="nome" placeholder="Nome da medicação" required>
+                                <input type="text" name="dosagem" placeholder="Dosagem" required>
+                                <input type="text" name="posologia" placeholder="Posologia" required>
+                                <button type="button" onclick="removerMedicacao(this)">-</button>
+                            </div>
                         </div>
-                    </div>
-                    <button onclick="adicionarMedicacao('${pacienteId}')">+ Adicionar Medicação</button>
-                    <button onclick="salvarMedicacoes('${pacienteId}')">Salvar</button>
-                `;
-                content.appendChild(container);
-            }
+                        <button onclick="adicionarMedicacao('${pacienteId}')">+ Adicionar Medicação</button>
+                        <button onclick="salvarMedicacoes('${pacienteId}')">Salvar</button>
+                    `;
+                    content.appendChild(container);
+                }
 
-            if (modulosAtivos.includes('modulo4')) {
-                const container = document.createElement('div');
-                container.className = 'module-container';
-                container.innerHTML = `<h3>Módulo 4</h3><p>Funcionalidade ainda não implementada.</p>`;
-                content.appendChild(container);
-            }
+                if (modulosAtivos.includes('modulo4')) {
+                    const container = document.createElement('div');
+                    container.className = 'module-container';
+                    container.innerHTML = `<h3>Módulo 4</h3><p>Funcionalidade ainda não implementada.</p>`;
+                    content.appendChild(container);
+                }
 
-            if (modulosAtivos.length === 0) {
-                content.innerHTML = '<p>Nenhum módulo ativo para este paciente.</p>';
-            }
+                if (modulosAtivos.length === 0) {
+                    content.innerHTML = '<p>Nenhum módulo ativo para este paciente.</p>';
+                }
+            });
         }
 
         async function salvarPA(pacienteId) {
@@ -848,6 +897,77 @@
             }
         }
 
+        function abrirFormularioBroadcast() {
+            const form = document.createElement('form');
+            form.innerHTML = `
+                <textarea name="mensagem" placeholder="Digite a mensagem" rows="4" required></textarea>
+                <select name="destinatarios" required>
+                    <option value="todos">Todos</option>
+                    <option value="alunos">Apenas Alunos</option>
+                    <option value="pacientes">Apenas Pacientes</option>
+                    <option value="admins">Apenas Administradores</option>
+                </select>
+                <button type="submit">Enviar</button>
+                <button type="button" onclick="desativarBroadcast()">Desativar</button>
+            `;
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const mensagem = form.mensagem.value;
+                const destinatarios = form.destinatarios.value;
+
+                try {
+                    await db.collection('Broadcast').doc('mensagemAtiva').set({
+                        mensagem,
+                        destinatarios,
+                        ativo: true,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    document.getElementById('broadcast-btn').classList.add('active');
+                    fecharModal();
+                } catch (error) {
+                    console.error('Erro ao enviar broadcast:', error);
+                    alert('Erro ao enviar a mensagem.');
+                }
+            });
+
+            mostrarModal('Enviar Mensagem', form, 'sucesso');
+        }
+
+        async function desativarBroadcast() {
+            await db.collection('Broadcast').doc('mensagemAtiva').update({ ativo: false });
+            document.getElementById('broadcast-btn').classList.remove('active');
+            fecharModal();
+            fecharBroadcastModal();
+        }
+
+        function verificarBroadcast() {
+            db.collection('Broadcast').doc('mensagemAtiva').onSnapshot(doc => {
+                if (doc.exists && doc.data().ativo) {
+                    const { mensagem, destinatarios } = doc.data();
+                    const isAdmin = currentUserId && db.collection('Alunos').doc(currentUserId).get().then(d => d.data().admin === 'yes');
+                    const isAluno = currentUserId && !isAdmin;
+                    const isPaciente = currentPacienteId !== null;
+
+                    let exibir = false;
+                    if (destinatarios === 'todos') exibir = true;
+                    else if (destinatarios === 'alunos' && isAluno) exibir = true;
+                    else if (destinatarios === 'pacientes' && isPaciente) exibir = true;
+                    else if (destinatarios === 'admins' && isAdmin) exibir = true;
+
+                    if (exibir) {
+                        mostrarBroadcast(mensagem);
+                        document.getElementById('broadcast-btn').classList.add('active');
+                    } else {
+                        fecharBroadcastModal();
+                    }
+                } else {
+                    fecharBroadcastModal();
+                    document.getElementById('broadcast-btn').classList.remove('active');
+                }
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             const formAluno = document.getElementById('formCadastroAluno');
 
@@ -988,6 +1108,7 @@
             });
 
             document.getElementById('overlay').addEventListener('click', fecharModal);
+            verificarBroadcast();
         });
     </script>
 </body>
