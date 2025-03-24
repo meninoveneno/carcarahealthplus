@@ -196,6 +196,10 @@
             display: block;
         }
 
+        .aba-btn.active {
+            background: #4caf50;
+        }
+
         .search-bar {
             margin-bottom: 1rem;
         }
@@ -305,22 +309,15 @@
             margin-top: 10px;
             max-height: 200px;
             overflow-y: auto;
+            list-style-type: none;
+            padding-left: 0;
         }
 
-        .record-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .records-list li {
             padding: 5px;
             background: #2c3e50;
             margin-bottom: 5px;
             border-radius: 5px;
-        }
-
-        .delete-btn {
-            background: #f44336;
-            padding: 5px 10px;
-            font-size: 0.8rem;
         }
 
         .water-counter {
@@ -545,6 +542,11 @@
             return partes[2] + partes[1] + partes[0];
         }
 
+        function formatarDataTopico(data) {
+            const date = new Date(data);
+            return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+        }
+
         function mostrarTela(idTela) {
             document.querySelectorAll('.container').forEach(tela => tela.classList.add('hidden'));
             document.getElementById(idTela).classList.remove('hidden');
@@ -732,8 +734,10 @@
                         <input type="text" id="pa_${pacienteId}" placeholder="Pressão Arterial (ex: 120/80)">
                         <input type="number" id="glicemia_${pacienteId}" placeholder="Glicemia (mg/dL)">
                         <button onclick="salvarPA('${pacienteId}')">Adicionar Aferição</button>
+                        <ul class="records-list" id="pa-list_${pacienteId}"></ul>
                     `;
                     content.appendChild(container);
+                    carregarListaPA(pacienteId);
                 }
 
                 if (modulosAtivos.includes('anotacoes')) {
@@ -743,8 +747,10 @@
                         <h3>Anotações Médicas</h3>
                         <textarea id="anotacoes_${pacienteId}" placeholder="Digite suas anotações médicas" rows="5"></textarea>
                         <button onclick="salvarAnotacoes('${pacienteId}')">Salvar</button>
+                        <ul class="records-list" id="anotacoes-list_${pacienteId}"></ul>
                     `;
                     content.appendChild(container);
+                    carregarListaAnotacoes(pacienteId);
                 }
 
                 if (modulosAtivos.includes('medicacoes')) {
@@ -762,8 +768,10 @@
                         </div>
                         <button onclick="adicionarMedicacao('${pacienteId}')">+ Adicionar Medicação</button>
                         <button onclick="salvarMedicacoes('${pacienteId}')">Salvar</button>
+                        <ul class="records-list" id="medicacoes-list_${pacienteId}"></ul>
                     `;
                     content.appendChild(container);
+                    carregarListaMedicacoes(pacienteId);
                 }
 
                 if (modulosAtivos.includes('modulo4')) {
@@ -784,6 +792,7 @@
                         <div class="timer-display" id="water-timer_${pacienteId}">Próximo lembrete: --:--</div>
                         <button onclick="iniciarTimerAgua('${pacienteId}')">Iniciar Lembrete (2h)</button>
                         <div class="water-alert" id="water-alert_${pacienteId}">Hora de beber água!</div>
+                        <ul class="records-list" id="water-list_${pacienteId}"></ul>
                     `;
                     content.appendChild(container);
                     carregarDadosAgua(pacienteId);
@@ -795,105 +804,7 @@
             });
         }
 
-        async function carregarHistoricoPaciente(pacienteId) {
-            // Histórico de P.A. e Glicemia
-            const paContainer = document.getElementById('historico-pa');
-            paContainer.innerHTML = '<h3>P.A. e Glicemia</h3>';
-            const paSnapshot = await db.collection('RegistrosPAeGlicemia')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .get();
-            if (paSnapshot.empty) {
-                paContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
-            } else {
-                const list = document.createElement('div');
-                list.className = 'records-list';
-                paSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    const item = document.createElement('div');
-                    item.className = 'record-item';
-                    item.innerHTML = `
-                        <span>P.A: ${data.pa}, Glicemia: ${data.glicemia} mg/dL - ${new Date(data.data).toLocaleString('pt-BR')}</span>
-                        <button class="delete-btn" onclick="apagarAfericao('${doc.id}', '${pacienteId}')">Apagar</button>
-                    `;
-                    list.appendChild(item);
-                });
-                paContainer.appendChild(list);
-            }
-
-            // Histórico de Anotações
-            const anotContainer = document.getElementById('historico-anotacoes');
-            anotContainer.innerHTML = '<h3>Anotações Médicas</h3>';
-            const anotSnapshot = await db.collection('AnotacoesMedicas')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .get();
-            if (anotSnapshot.empty) {
-                anotContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
-            } else {
-                const list = document.createElement('div');
-                list.className = 'records-list';
-                anotSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    const item = document.createElement('div');
-                    item.className = 'record-item';
-                    item.innerHTML = `
-                        <span>${data.anotacoes} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
-                        <button class="delete-btn" onclick="apagarAnotacao('${doc.id}', '${pacienteId}')">Apagar</button>
-                    `;
-                    list.appendChild(item);
-                });
-                anotContainer.appendChild(list);
-            }
-
-            // Histórico de Medicações
-            const medContainer = document.getElementById('historico-medicacoes');
-            medContainer.innerHTML = '<h3>Medicações</h3>';
-            const medSnapshot = await db.collection('Medicacoes')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .get();
-            if (medSnapshot.empty) {
-                medContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
-            } else {
-                const list = document.createElement('div');
-                list.className = 'records-list';
-                medSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    const item = document.createElement('div');
-                    item.className = 'record-item';
-                    item.innerHTML = `
-                        <span>${data.medicacoes.map(m => `${m.nome} (${m.dosagem}, ${m.posologia})`).join(', ')} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
-                        <button class="delete-btn" onclick="apagarMedicacao('${doc.id}', '${pacienteId}')">Apagar</button>
-                    `;
-                    list.appendChild(item);
-                });
-                medContainer.appendChild(list);
-            }
-
-            // Histórico de Água
-            const aguaContainer = document.getElementById('historico-agua');
-            aguaContainer.innerHTML = '<h3>Ingestão de Água</h3>';
-            const aguaSnapshot = await db.collection('HistoricoAgua')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .get();
-            if (aguaSnapshot.empty) {
-                aguaContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
-            } else {
-                const list = document.createElement('div');
-                list.className = 'records-list';
-                aguaSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    const item = document.createElement('div');
-                    item.className = 'record-item';
-                    item.innerHTML = `<span>${data.acao} - ${new Date(data.data).toLocaleString('pt-BR')}</span>`;
-                    list.appendChild(item);
-                });
-                aguaContainer.appendChild(list);
-            }
-        }
-
+        // Funções de salvamento e carregamento com localStorage e Firestore
         async function salvarPA(pacienteId) {
             const pa = document.getElementById(`pa_${pacienteId}`).value;
             const glicemia = document.getElementById(`glicemia_${pacienteId}`).value;
@@ -908,22 +819,62 @@
                 pacienteId,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             };
+
             try {
-                await db.collection('RegistrosPAeGlicemia').add(data);
+                // Salvar no Firestore
+                const docRef = await db.collection('RegistrosPAeGlicemia').add(data);
+                data.id = docRef.id;
+
+                // Salvar localmente
+                let localData = JSON.parse(localStorage.getItem(`pa_${pacienteId}`)) || [];
+                localData.push(data);
+                localStorage.setItem(`pa_${pacienteId}`, JSON.stringify(localData));
+
                 document.getElementById(`pa_${pacienteId}`).value = '';
                 document.getElementById(`glicemia_${pacienteId}`).value = '';
+                carregarListaPA(pacienteId);
                 alert('Aferição salva com sucesso!');
             } catch (error) {
                 console.error('Erro ao salvar:', error);
-                alert('Erro ao salvar a aferição.');
+                alert('Erro ao salvar a aferição. Salvando apenas localmente.');
+                let localData = JSON.parse(localStorage.getItem(`pa_${pacienteId}`)) || [];
+                data.id = Date.now().toString(); // ID temporário
+                localData.push(data);
+                localStorage.setItem(`pa_${pacienteId}`, JSON.stringify(localData));
+                carregarListaPA(pacienteId);
             }
         }
 
-        async function apagarAfericao(afericaoId, pacienteId) {
-            if (confirm('Deseja apagar esta aferição?')) {
-                await db.collection('RegistrosPAeGlicemia').doc(afericaoId).delete();
-                carregarHistoricoPaciente(pacienteId);
-            }
+        async function carregarListaPA(pacienteId) {
+            const list = document.getElementById(`pa-list_${pacienteId}`);
+            list.innerHTML = '';
+
+            // Carregar do localStorage
+            let localData = JSON.parse(localStorage.getItem(`pa_${pacienteId}`)) || [];
+            localData.forEach(data => {
+                const li = document.createElement('li');
+                li.textContent = `• ${formatarDataTopico(data.data)} PA: ${data.pa} GLICEMIA: ${data.glicemia}`;
+                list.appendChild(li);
+            });
+
+            // Carregar do Firestore e sincronizar
+            const snapshot = await db.collection('RegistrosPAeGlicemia')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                data.id = doc.id;
+                const li = document.createElement('li');
+                li.textContent = `• ${formatarDataTopico(data.data)} PA: ${data.pa} GLICEMIA: ${data.glicemia}`;
+                if (!localData.some(item => item.id === data.id)) {
+                    list.appendChild(li);
+                    localData.push(data);
+                }
+            });
+
+            localStorage.setItem(`pa_${pacienteId}`, JSON.stringify(localData));
         }
 
         async function salvarAnotacoes(pacienteId) {
@@ -938,21 +889,61 @@
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 data: new Date().toISOString()
             };
+
             try {
-                await db.collection('AnotacoesMedicas').add(data);
+                // Salvar no Firestore
+                const docRef = await db.collection('AnotacoesMedicas').add(data);
+                data.id = docRef.id;
+
+                // Salvar localmente
+                let localData = JSON.parse(localStorage.getItem(`anotacoes_${pacienteId}`)) || [];
+                localData.push(data);
+                localStorage.setItem(`anotacoes_${pacienteId}`, JSON.stringify(localData));
+
                 document.getElementById(`anotacoes_${pacienteId}`).value = '';
+                carregarListaAnotacoes(pacienteId);
                 alert('Anotação salva com sucesso!');
             } catch (error) {
                 console.error('Erro ao salvar:', error);
-                alert('Erro ao salvar a anotação.');
+                alert('Erro ao salvar a anotação. Salvando apenas localmente.');
+                let localData = JSON.parse(localStorage.getItem(`anotacoes_${pacienteId}`)) || [];
+                data.id = Date.now().toString();
+                localData.push(data);
+                localStorage.setItem(`anotacoes_${pacienteId}`, JSON.stringify(localData));
+                carregarListaAnotacoes(pacienteId);
             }
         }
 
-        async function apagarAnotacao(anotacaoId, pacienteId) {
-            if (confirm('Deseja apagar esta anotação?')) {
-                await db.collection('AnotacoesMedicas').doc(anotacaoId).delete();
-                carregarHistoricoPaciente(pacienteId);
-            }
+        async function carregarListaAnotacoes(pacienteId) {
+            const list = document.getElementById(`anotacoes-list_${pacienteId}`);
+            list.innerHTML = '';
+
+            // Carregar do localStorage
+            let localData = JSON.parse(localStorage.getItem(`anotacoes_${pacienteId}`)) || [];
+            localData.forEach(data => {
+                const li = document.createElement('li');
+                li.textContent = `• ${formatarDataTopico(data.data)} ${data.anotacoes}`;
+                list.appendChild(li);
+            });
+
+            // Carregar do Firestore e sincronizar
+            const snapshot = await db.collection('AnotacoesMedicas')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                data.id = doc.id;
+                const li = document.createElement('li');
+                li.textContent = `• ${formatarDataTopico(data.data)} ${data.anotacoes}`;
+                if (!localData.some(item => item.id === data.id)) {
+                    list.appendChild(li);
+                    localData.push(data);
+                }
+            });
+
+            localStorage.setItem(`anotacoes_${pacienteId}`, JSON.stringify(localData));
         }
 
         function adicionarMedicacao(pacienteId) {
@@ -982,32 +973,72 @@
                 dosagem: entry.querySelector('[name="dosagem"]').value,
                 posologia: entry.querySelector('[name="posologia"]').value
             })).filter(m => m.nome && m.dosagem && m.posologia);
-            
+
             if (medicacoes.length === 0) {
                 alert('Adicione pelo menos uma medicação válida!');
                 return;
             }
-            
+
             const data = {
                 medicacoes,
                 pacienteId,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 data: new Date().toISOString()
             };
+
             try {
-                await db.collection('Medicacoes').add(data);
+                // Salvar no Firestore
+                const docRef = await db.collection('Medicacoes').add(data);
+                data.id = docRef.id;
+
+                // Salvar localmente
+                let localData = JSON.parse(localStorage.getItem(`medicacoes_${pacienteId}`)) || [];
+                localData.push(data);
+                localStorage.setItem(`medicacoes_${pacienteId}`, JSON.stringify(localData));
+
+                carregarListaMedicacoes(pacienteId);
                 alert('Medicações salvas com sucesso!');
             } catch (error) {
                 console.error('Erro ao salvar:', error);
-                alert('Erro ao salvar as medicações.');
+                alert('Erro ao salvar as medicações. Salvando apenas localmente.');
+                let localData = JSON.parse(localStorage.getItem(`medicacoes_${pacienteId}`)) || [];
+                data.id = Date.now().toString();
+                localData.push(data);
+                localStorage.setItem(`medicacoes_${pacienteId}`, JSON.stringify(localData));
+                carregarListaMedicacoes(pacienteId);
             }
         }
 
-        async function apagarMedicacao(medicacaoId, pacienteId) {
-            if (confirm('Deseja apagar esta medicação?')) {
-                await db.collection('Medicacoes').doc(medicacaoId).delete();
-                carregarHistoricoPaciente(pacienteId);
-            }
+        async function carregarListaMedicacoes(pacienteId) {
+            const list = document.getElementById(`medicacoes-list_${pacienteId}`);
+            list.innerHTML = '';
+
+            // Carregar do localStorage
+            let localData = JSON.parse(localStorage.getItem(`medicacoes_${pacienteId}`)) || [];
+            localData.forEach(data => {
+                const li = document.createElement('li');
+                li.textContent = `• ${formatarDataTopico(data.data)} ${data.medicacoes.map(m => `${m.nome} ${m.dosagem} ${m.posologia}`).join(', ')}`;
+                list.appendChild(li);
+            });
+
+            // Carregar do Firestore e sincronizar
+            const snapshot = await db.collection('Medicacoes')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                data.id = doc.id;
+                const li = document.createElement('li');
+                li.textContent = `• ${formatarDataTopico(data.data)} ${data.medicacoes.map(m => `${m.nome} ${m.dosagem} ${m.posologia}`).join(', ')}`;
+                if (!localData.some(item => item.id === data.id)) {
+                    list.appendChild(li);
+                    localData.push(data);
+                }
+            });
+
+            localStorage.setItem(`medicacoes_${pacienteId}`, JSON.stringify(localData));
         }
 
         async function carregarDadosAgua(pacienteId) {
@@ -1016,7 +1047,7 @@
             const doc = await docRef.get();
 
             let count = 0;
-            let goal = 8; // Meta padrão: 8 copos
+            let goal = 8;
             if (doc.exists) {
                 count = doc.data().copos || 0;
                 goal = doc.data().meta || 8;
@@ -1025,6 +1056,7 @@
             document.getElementById(`water-count_${pacienteId}`).textContent = count;
             document.getElementById(`water-goal_${pacienteId}`).value = goal;
             atualizarProgressoAgua(pacienteId, count, goal);
+            carregarListaAgua(pacienteId);
         }
 
         async function adicionarAgua(pacienteId) {
@@ -1035,17 +1067,24 @@
             let goal = doc.exists ? doc.data().meta || 8 : 8;
 
             count++;
-            await docRef.set({
+            const data = {
                 copos: count,
                 meta: goal,
                 pacienteId,
                 data: today,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+            };
+
+            try {
+                await docRef.set(data, { merge: true });
+                registrarHistoricoAgua(pacienteId, 'Adicionou 1 copo', true);
+            } catch (error) {
+                console.error('Erro ao salvar no Firestore:', error);
+                registrarHistoricoAgua(pacienteId, 'Adicionou 1 copo', false);
+            }
 
             document.getElementById(`water-count_${pacienteId}`).textContent = count;
             atualizarProgressoAgua(pacienteId, count, goal);
-            registrarHistoricoAgua(pacienteId, 'Adicionou 1 copo');
         }
 
         async function diminuirAgua(pacienteId) {
@@ -1057,17 +1096,24 @@
 
             if (count > 0) {
                 count--;
-                await docRef.set({
+                const data = {
                     copos: count,
                     meta: goal,
                     pacienteId,
                     data: today,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true });
+                };
+
+                try {
+                    await docRef.set(data, { merge: true });
+                    registrarHistoricoAgua(pacienteId, 'Removeu 1 copo', true);
+                } catch (error) {
+                    console.error('Erro ao salvar no Firestore:', error);
+                    registrarHistoricoAgua(pacienteId, 'Removeu 1 copo', false);
+                }
 
                 document.getElementById(`water-count_${pacienteId}`).textContent = count;
                 atualizarProgressoAgua(pacienteId, count, goal);
-                registrarHistoricoAgua(pacienteId, 'Removeu 1 copo');
             }
         }
 
@@ -1083,16 +1129,27 @@
             const doc = await docRef.get();
             const count = doc.exists ? doc.data().copos || 0 : 0;
 
-            await docRef.set({
+            const data = {
                 copos: count,
                 meta: goal,
                 pacienteId,
                 data: today,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+            };
 
-            atualizarProgressoAgua(pacienteId, count, goal);
-            alert('Meta definida com sucesso!');
+            try {
+                await docRef.set(data, { merge: true });
+                atualizarProgressoAgua(pacienteId, count, goal);
+                alert('Meta definida com sucesso!');
+            } catch (error) {
+                console.error('Erro ao salvar no Firestore:', error);
+                alert('Erro ao definir meta. Salvando apenas localmente.');
+                let localData = JSON.parse(localStorage.getItem(`agua_${pacienteId}_${today}`)) || {};
+                localData.copos = count;
+                localData.meta = goal;
+                localStorage.setItem(`agua_${pacienteId}_${today}`, JSON.stringify(localData));
+                atualizarProgressoAgua(pacienteId, count, goal);
+            }
         }
 
         function atualizarProgressoAgua(pacienteId, count, goal) {
@@ -1130,13 +1187,149 @@
             }, 1000);
         }
 
-        async function registrarHistoricoAgua(pacienteId, acao) {
-            await db.collection('HistoricoAgua').add({
+        async function registrarHistoricoAgua(pacienteId, acao, syncedWithFirestore) {
+            const data = {
                 pacienteId,
                 acao,
                 data: new Date().toISOString(),
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                timestamp: syncedWithFirestore ? firebase.firestore.FieldValue.serverTimestamp() : Date.now()
+            };
+
+            try {
+                if (syncedWithFirestore) {
+                    const docRef = await db.collection('HistoricoAgua').add(data);
+                    data.id = docRef.id;
+                } else {
+                    data.id = Date.now().toString();
+                }
+
+                // Salvar localmente
+                let localData = JSON.parse(localStorage.getItem(`agua_historico_${pacienteId}`)) || [];
+                localData.push(data);
+                localStorage.setItem(`agua_historico_${pacienteId}`, JSON.stringify(localData));
+
+                carregarListaAgua(pacienteId);
+            } catch (error) {
+                console.error('Erro ao salvar histórico:', error);
+            }
+        }
+
+        async function carregarListaAgua(pacienteId) {
+            const list = document.getElementById(`water-list_${pacienteId}`);
+            list.innerHTML = '';
+
+            // Carregar do localStorage
+            let localData = JSON.parse(localStorage.getItem(`agua_historico_${pacienteId}`)) || [];
+            localData.forEach(data => {
+                const li = document.createElement('li');
+                li.textContent = `• ${formatarDataTopico(data.data)} ${data.acao}`;
+                list.appendChild(li);
             });
+
+            // Carregar do Firestore e sincronizar
+            const snapshot = await db.collection('HistoricoAgua')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                data.id = doc.id;
+                const li = document.createElement('li');
+                li.textContent = `• ${formatarDataTopico(data.data)} ${data.acao}`;
+                if (!localData.some(item => item.id === data.id)) {
+                    list.appendChild(li);
+                    localData.push(data);
+                }
+            });
+
+            localStorage.setItem(`agua_historico_${pacienteId}`, JSON.stringify(localData));
+        }
+
+        async function carregarHistoricoPaciente(pacienteId) {
+            // Histórico de P.A. e Glicemia
+            const paContainer = document.getElementById('historico-pa');
+            paContainer.innerHTML = '<h3>P.A. e Glicemia</h3>';
+            const paSnapshot = await db.collection('RegistrosPAeGlicemia')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            if (paSnapshot.empty) {
+                paContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                const list = document.createElement('ul');
+                list.className = 'records-list';
+                paSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const li = document.createElement('li');
+                    li.textContent = `• ${formatarDataTopico(data.data)} PA: ${data.pa} GLICEMIA: ${data.glicemia}`;
+                    list.appendChild(li);
+                });
+                paContainer.appendChild(list);
+            }
+
+            // Histórico de Anotações
+            const anotContainer = document.getElementById('historico-anotacoes');
+            anotContainer.innerHTML = '<h3>Anotações Médicas</h3>';
+            const anotSnapshot = await db.collection('AnotacoesMedicas')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            if (anotSnapshot.empty) {
+                anotContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                const list = document.createElement('ul');
+                list.className = 'records-list';
+                anotSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const li = document.createElement('li');
+                    li.textContent = `• ${formatarDataTopico(data.data)} ${data.anotacoes}`;
+                    list.appendChild(li);
+                });
+                anotContainer.appendChild(list);
+            }
+
+            // Histórico de Medicações
+            const medContainer = document.getElementById('historico-medicacoes');
+            medContainer.innerHTML = '<h3>Medicações</h3>';
+            const medSnapshot = await db.collection('Medicacoes')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            if (medSnapshot.empty) {
+                medContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                const list = document.createElement('ul');
+                list.className = 'records-list';
+                medSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const li = document.createElement('li');
+                    li.textContent = `• ${formatarDataTopico(data.data)} ${data.medicacoes.map(m => `${m.nome} ${m.dosagem} ${m.posologia}`).join(', ')}`;
+                    list.appendChild(li);
+                });
+                medContainer.appendChild(list);
+            }
+
+            // Histórico de Água
+            const aguaContainer = document.getElementById('historico-agua');
+            aguaContainer.innerHTML = '<h3>Ingestão de Água</h3>';
+            const aguaSnapshot = await db.collection('HistoricoAgua')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            if (aguaSnapshot.empty) {
+                aguaContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                const list = document.createElement('ul');
+                list.className = 'records-list';
+                aguaSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const li = document.createElement('li');
+                    li.textContent = `• ${formatarDataTopico(data.data)} ${data.acao}`;
+                    list.appendChild(li);
+                });
+                aguaContainer.appendChild(list);
+            }
         }
 
         async function verPerfilPaciente(pacienteId) {
