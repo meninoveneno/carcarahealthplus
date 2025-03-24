@@ -478,6 +478,7 @@
                         <div>
                             <strong>${paciente.nomeCompleto}</strong> (${paciente.usuario})
                         </div>
+                        <button onclick="editarPaciente('${paciente.id}')">Editar</button>
                     `;
                     lista.appendChild(div);
                 });
@@ -508,7 +509,7 @@
                     <option value="pendente" ${usuario.status === 'pendente' ? 'selected' : ''}>Pendente</option>
                     <option value="negado" ${usuario.status === 'negado' ? 'selected' : ''}>Negado</option>
                 </select>
-                <textarea name="motivoNegacao" placeholder="Motivo da negação (obrigatório se negado)" ${usuario.motivoNegacao ? `value="${usuario.motivoNegacao}"` : ''}></textarea>
+                <textarea name="motivoNegacao" placeholder="Motivo da negação (obrigatório se negado)">${usuario.motivoNegacao || ''}</textarea>
                 <button type="submit">Salvar</button>
                 <button type="button" onclick="excluirUsuario('${id}')">Excluir</button>
             `;
@@ -547,6 +548,54 @@
         async function excluirUsuario(id) {
             if (confirm('Deseja realmente excluir este usuário?')) {
                 await db.collection('Alunos').doc(id).delete();
+                fecharModal();
+            }
+        }
+
+        async function editarPaciente(id) {
+            const doc = await db.collection('Pacientes').doc(id).get();
+            const paciente = doc.data();
+
+            const form = document.createElement('form');
+            form.className = 'edit-form';
+            form.innerHTML = `
+                <input type="text" name="nomeCompleto" value="${paciente.nomeCompleto}" placeholder="Nome Completo" required>
+                <input type="date" name="dataNascimento" value="${paciente.dataNascimento}" required>
+                <input type="email" name="email" value="${paciente.email || ''}" placeholder="Email (opcional)">
+                <input type="text" name="cartaoSus" value="${paciente.cartaoSus || ''}" placeholder="Cartão SUS (opcional)">
+                <input type="text" name="whatsapp" value="${paciente.whatsapp}" placeholder="WhatsApp" required>
+                <input type="text" name="senha" value="${paciente.senha}" placeholder="Senha" required>
+                <button type="submit">Salvar</button>
+                <button type="button" onclick="excluirPaciente('${id}')">Excluir</button>
+            `;
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const data = {
+                    nomeCompleto: form.nomeCompleto.value,
+                    dataNascimento: form.dataNascimento.value,
+                    email: form.email.value,
+                    cartaoSus: form.cartaoSus.value,
+                    whatsapp: form.whatsapp.value,
+                    senha: form.senha.value,
+                    usuario: paciente.usuario // Mantém o usuário original
+                };
+
+                try {
+                    await db.collection('Pacientes').doc(id).update(data);
+                    fecharModal();
+                } catch (error) {
+                    console.error('Erro ao atualizar paciente:', error);
+                    alert('Erro ao salvar as alterações: ' + error.message);
+                }
+            });
+
+            mostrarModal('Editar Paciente', form, 'sucesso');
+        }
+
+        async function excluirPaciente(id) {
+            if (confirm('Deseja realmente excluir este paciente?')) {
+                await db.collection('Pacientes').doc(id).delete();
                 fecharModal();
             }
         }
