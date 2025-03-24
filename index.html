@@ -76,6 +76,14 @@
             background: #4caf50;
         }
 
+        button.registros-btn {
+            background: #2196f3;
+        }
+
+        button.registros-btn:hover:not(:disabled) {
+            background: #1976d2;
+        }
+
         input, select, textarea {
             width: 100%;
             padding: 8px;
@@ -85,6 +93,11 @@
             border-radius: 5px;
             color: white;
             font-size: 0.9rem;
+        }
+
+        textarea.editable {
+            background: #fff;
+            color: #000;
         }
 
         .hidden {
@@ -278,7 +291,7 @@
     <div class="overlay" id="overlay"></div>
     <div class="modal" id="modal">
         <h3 id="modal-title"></h3>
-        <p id="modal-content"></p>
+        <div id="modal-content"></div>
         <button class="close-btn" onclick="fecharModal()">Fechar</button>
     </div>
 
@@ -397,7 +410,6 @@
         <button id="broadcast-btn" class="broadcast-btn" onclick="abrirFormularioBroadcast()">📢 Enviar Mensagem</button>
         <div class="abas">
             <button onclick="mostrarAba('usuarios'); carregarUsuarios();">Usuários</button>
-            <button onclick="mostrarAba('pacientes'); carregarPacientesAdmin();">Pacientes</button>
         </div>
 
         <!-- Aba Usuários -->
@@ -407,23 +419,17 @@
             <div id="lista-usuarios"></div>
         </div>
 
-        <!-- Aba Pacientes -->
-        <div id="aba-pacientes" class="aba hidden">
-            <h2>Pacientes</h2>
-            <div class="patient-list" id="lista-pacientes-admin"></div>
-        </div>
-
         <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
     </div>
 
     <script>
         const firebaseConfig = {
-            apiKey: "AIzaSyC6MCXqH2TXWzahesHtyk7JeB-gHshiWFc",
-            authDomain: "carcarahealthplus-4ef7b.firebaseapp.com",
-            projectId: "carcarahealthplus-4ef7b",
-            storageBucket: "carcarahealthplus-4ef7b.firebasestorage.app",
-            messagingSenderId: "149920030952",
-            appId: "1:149920030952:web:e19ea0ba0b0f400d18295d"
+            apiKey: "Sua_API_Key",
+            authDomain: "Seu_Domínio",
+            projectId: "Seu_Project_ID",
+            storageBucket: "Seu_Storage_Bucket",
+            messagingSenderId: "Seu_Sender_ID",
+            appId: "Seu_App_ID"
         };
 
         let db, auth;
@@ -460,7 +466,7 @@
 
         function mostrarModal(titulo, conteudo, status) {
             const modal = document.getElementById('modal');
-            modal.className = `modal ${status}`;
+            modal.className = `modal ${status || ''}`;
             document.getElementById('modal-title').textContent = titulo;
             if (typeof conteudo === 'string') {
                 document.getElementById('modal-content').textContent = conteudo;
@@ -550,41 +556,6 @@
             search.addEventListener('input', carregarUsuarios);
         }
 
-        function carregarPacientesAdmin() {
-            const lista = document.getElementById('lista-pacientes-admin');
-            if (pacientesListener) pacientesListener();
-
-            pacientesListener = db.collection('Pacientes').onSnapshot(async snapshot => {
-                lista.innerHTML = '';
-                const pacientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                pacientes.sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
-
-                for (const paciente of pacientes) {
-                    const modulosDoc = await db.collection('ModulosAtivos').doc(paciente.id).get();
-                    const modulosAtivos = modulosDoc.exists ? modulosDoc.data().modulos || [] : [];
-
-                    const div = document.createElement('div');
-                    div.className = 'user-item';
-                    div.innerHTML = `
-                        <div>
-                            <strong>${paciente.nomeCompleto}</strong>
-                        </div>
-                        <div>
-                            <button class="module-btn ${modulosAtivos.includes('pa_glicemia') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'pa_glicemia', this)">P.A./Glicemia</button>
-                            <button class="module-btn ${modulosAtivos.includes('anotacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'anotacoes', this)">Anotações</button>
-                            <button class="module-btn ${modulosAtivos.includes('medicacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'medicacoes', this)">Medicações</button>
-                            <button class="module-btn ${modulosAtivos.includes('modulo4') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'modulo4', this)">Módulo 4</button>
-                            <button class="profile-btn" onclick="verPerfilPaciente('${paciente.id}')">👤</button>
-                            <button onclick="editarPaciente('${paciente.id}')">Editar</button>
-                            <button onclick="excluirPaciente('${paciente.id}')">Excluir</button>
-                        </div>
-                    `;
-                    lista.appendChild(div);
-                }
-            });
-        }
-
         function carregarPacientesAluno() {
             const lista = document.getElementById('lista-pacientes-aluno');
             if (pacientesListener) pacientesListener();
@@ -611,7 +582,8 @@
                             <button class="module-btn ${modulosAtivos.includes('medicacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'medicacoes', this)">Medicações</button>
                             <button class="module-btn ${modulosAtivos.includes('modulo4') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'modulo4', this)">Módulo 4</button>
                             <button class="profile-btn" onclick="verPerfilPaciente('${paciente.id}')">👤</button>
-                            <button onclick="verRegistrosPaciente('${paciente.id}')">Registros</button>
+                            <button class="registros-btn" onclick="verRegistrosPaciente('${paciente.id}')">Registros</button>
+                            <button onclick="verHistoricoPaciente('${paciente.id}')">Ver Histórico</button>
                         </div>
                     `;
                     lista.appendChild(div);
@@ -635,13 +607,12 @@
             await docRef.set({ modulos: modulosAtivos }, { merge: true });
         }
 
-        function carregarModulosPaciente(pacienteId) {
+        async function carregarModulosPaciente(pacienteId) {
             const pacienteNome = document.getElementById('paciente-nome');
             const content = document.getElementById('module-content');
 
-            db.collection('Pacientes').doc(pacienteId).get().then(doc => {
-                pacienteNome.textContent = `Módulos - ${doc.data().nomeCompleto}`;
-            });
+            const pacienteDoc = await db.collection('Pacientes').doc(pacienteId).get();
+            pacienteNome.textContent = `Módulos - ${pacienteDoc.data().nomeCompleto}`;
 
             if (modulosListener) modulosListener();
             modulosListener = db.collection('ModulosAtivos').doc(pacienteId).onSnapshot(doc => {
@@ -653,8 +624,8 @@
                     container.className = 'module-container';
                     container.innerHTML = `
                         <h3>P.A. e Glicemia</h3>
-                        <input type="text" id="pa_${pacienteId}" placeholder="Pressão Arterial (ex: 120/80)" required>
-                        <input type="number" id="glicemia_${pacienteId}" placeholder="Glicemia (mg/dL)" required>
+                        <input type="text" id="pa_${pacienteId}" placeholder="Pressão Arterial (ex: 120/80)">
+                        <input type="number" id="glicemia_${pacienteId}" placeholder="Glicemia (mg/dL)">
                         <button onclick="salvarPA('${pacienteId}')">Adicionar Aferição</button>
                         <button onclick="verHistoricoPA('${pacienteId}')">Ver Histórico</button>
                     `;
@@ -666,7 +637,7 @@
                     container.className = 'module-container';
                     container.innerHTML = `
                         <h3>Anotações Médicas</h3>
-                        <textarea id="anotacoes_${pacienteId}" placeholder="Digite suas anotações médicas" rows="5" required></textarea>
+                        <textarea id="anotacoes_${pacienteId}" placeholder="Digite suas anotações médicas" rows="5"></textarea>
                         <button onclick="salvarAnotacoes('${pacienteId}')">Salvar</button>
                     `;
                     content.appendChild(container);
@@ -680,9 +651,9 @@
                         <h3>Registro de Medicações</h3>
                         <div id="medication-list_${pacienteId}">
                             <div class="medication-entry">
-                                <input type="text" name="nome" placeholder="Nome da medicação" required>
-                                <input type="text" name="dosagem" placeholder="Dosagem" required>
-                                <input type="text" name="posologia" placeholder="Posologia" required>
+                                <input type="text" name="nome" placeholder="Nome da medicação">
+                                <input type="text" name="dosagem" placeholder="Dosagem">
+                                <input type="text" name="posologia" placeholder="Posologia">
                                 <button type="button" onclick="removerMedicacao(this)">-</button>
                             </div>
                         </div>
@@ -707,9 +678,15 @@
         }
 
         async function salvarPA(pacienteId) {
+            const pa = document.getElementById(`pa_${pacienteId}`).value;
+            const glicemia = document.getElementById(`glicemia_${pacienteId}`).value;
+            if (!pa || !glicemia) {
+                alert('Preencha ambos os campos!');
+                return;
+            }
             const data = {
-                pa: document.getElementById(`pa_${pacienteId}`).value,
-                glicemia: parseInt(document.getElementById(`glicemia_${pacienteId}`).value),
+                pa,
+                glicemia: parseInt(glicemia),
                 data: new Date().toISOString(),
                 pacienteId,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
@@ -747,8 +724,13 @@
         }
 
         async function salvarAnotacoes(pacienteId) {
+            const anotacoes = document.getElementById(`anotacoes_${pacienteId}`).value;
+            if (!anotacoes) {
+                alert('Digite uma anotação!');
+                return;
+            }
             const data = {
-                anotacoes: document.getElementById(`anotacoes_${pacienteId}`).value,
+                anotacoes,
                 pacienteId,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             };
@@ -778,9 +760,9 @@
             const entry = document.createElement('div');
             entry.className = 'medication-entry';
             entry.innerHTML = `
-                <input type="text" name="nome" placeholder="Nome da medicação" required>
-                <input type="text" name="dosagem" placeholder="Dosagem" required>
-                <input type="text" name="posologia" placeholder="Posologia" required>
+                <input type="text" name="nome" placeholder="Nome da medicação">
+                <input type="text" name="dosagem" placeholder="Dosagem">
+                <input type="text" name="posologia" placeholder="Posologia">
                 <button type="button" onclick="removerMedicacao(this)">-</button>
             `;
             list.appendChild(entry);
@@ -799,7 +781,13 @@
                 nome: entry.querySelector('[name="nome"]').value,
                 dosagem: entry.querySelector('[name="dosagem"]').value,
                 posologia: entry.querySelector('[name="posologia"]').value
-            }));
+            })).filter(m => m.nome && m.dosagem && m.posologia);
+            
+            if (medicacoes.length === 0) {
+                alert('Adicione pelo menos uma medicação válida!');
+                return;
+            }
+            
             const data = {
                 medicacoes,
                 pacienteId,
@@ -828,9 +816,9 @@
                     const entry = document.createElement('div');
                     entry.className = 'medication-entry';
                     entry.innerHTML = `
-                        <input type="text" name="nome" value="${med.nome}" required>
-                        <input type="text" name="dosagem" value="${med.dosagem}" required>
-                        <input type="text" name="posologia" value="${med.posologia}" required>
+                        <input type="text" name="nome" value="${med.nome}">
+                        <input type="text" name="dosagem" value="${med.dosagem}">
+                        <input type="text" name="posologia" value="${med.posologia}">
                         <button type="button" onclick="removerMedicacao(this)">-</button>
                     `;
                     list.appendChild(entry);
@@ -839,9 +827,38 @@
         }
 
         async function verRegistrosPaciente(pacienteId) {
+            const form = document.createElement('div');
+            form.className = 'edit-form';
+            
+            const [paSnap, anotSnap, medSnap] = await Promise.all([
+                db.collection('RegistrosPAeGlicemia').where('pacienteId', '==', pacienteId).orderBy('timestamp', 'desc').limit(1).get(),
+                db.collection('AnotacoesMedicas').where('pacienteId', '==', pacienteId).orderBy('timestamp', 'desc').limit(1).get(),
+                db.collection('Medicacoes').where('pacienteId', '==', pacienteId).orderBy('timestamp', 'desc').limit(1).get()
+            ]);
+
+            const paData = !paSnap.empty ? paSnap.docs[0].data() : null;
+            const anotData = !anotSnap.empty ? anotSnap.docs[0].data() : null;
+            const medData = !medSnap.empty ? medSnap.docs[0].data() : null;
+
+            form.innerHTML = `
+                <h4>P.A. e Glicemia</h4>
+                <input type="text" value="${paData ? paData.pa : 'Nenhum dado'}" readonly>
+                <input type="text" value="${paData ? paData.glicemia + ' mg/dL' : 'Nenhum dado'}" readonly>
+                <h4>Anotações Médicas</h4>
+                <textarea class="editable" id="anotacoes-edit">${anotData ? anotData.anotacoes : ''}</textarea>
+                <h4>Medicações</h4>
+                <textarea readonly>${medData ? medData.medicacoes.map(m => `${m.nome} (${m.dosagem}, ${m.posologia})`).join('\n') : 'Nenhum dado'}</textarea>
+                <button onclick="salvarAnotacoesEditadas('${pacienteId}', '${anotSnap.empty ? '' : anotSnap.docs[0].id}')">Salvar Anotações</button>
+            `;
+
+            mostrarModal('Dados do Paciente', form, 'sucesso');
+        }
+
+        async function verHistoricoPaciente(pacienteId) {
             const div = document.createElement('div');
+            div.className = 'history-list';
+            
             div.innerHTML = `
-                <h3>Registros do Paciente</h3>
                 <h4>P.A. e Glicemia</h4>
                 <div id="historico-pa"></div>
                 <h4>Anotações Médicas</h4>
@@ -850,43 +867,58 @@
                 <div id="historico-medicacoes"></div>
             `;
 
-            // Histórico P.A./Glicemia
-            const paSnapshot = await db.collection('RegistrosPAeGlicemia')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .get();
+            const [paSnap, anotSnap, medSnap] = await Promise.all([
+                db.collection('RegistrosPAeGlicemia').where('pacienteId', '==', pacienteId).orderBy('timestamp', 'desc').get(),
+                db.collection('AnotacoesMedicas').where('pacienteId', '==', pacienteId).orderBy('timestamp', 'desc').get(),
+                db.collection('Medicacoes').where('pacienteId', '==', pacienteId).orderBy('timestamp', 'desc').get()
+            ]);
+
             const paDiv = div.querySelector('#historico-pa');
-            if (paSnapshot.empty) paDiv.innerHTML = '<p>Sem registros.</p>';
-            else paSnapshot.forEach(doc => {
+            if (paSnap.empty) paDiv.innerHTML = '<p>Sem registros.</p>';
+            else paSnap.forEach(doc => {
                 const data = doc.data();
-                paDiv.innerHTML += `<p>P.A.: ${data.pa}, Glicemia: ${data.glicemia} mg/dL, Data: ${new Date(data.data).toLocaleString('pt-BR')}</p>`;
+                paDiv.innerHTML += `<p>P.A.: ${data.pa}, Glicemia: ${data.glicemia} mg/dL - ${new Date(data.data).toLocaleString('pt-BR')}</p>`;
             });
 
-            // Histórico Anotações
-            const anotSnapshot = await db.collection('AnotacoesMedicas')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .get();
             const anotDiv = div.querySelector('#historico-anotacoes');
-            if (anotSnapshot.empty) anotDiv.innerHTML = '<p>Sem registros.</p>';
-            else anotSnapshot.forEach(doc => {
+            if (anotSnap.empty) anotDiv.innerHTML = '<p>Sem registros.</p>';
+            else anotSnap.forEach(doc => {
                 const data = doc.data();
                 anotDiv.innerHTML += `<p>${data.anotacoes} - ${new Date(data.timestamp.toDate()).toLocaleString('pt-BR')}</p>`;
             });
 
-            // Histórico Medicações
-            const medSnapshot = await db.collection('Medicacoes')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .get();
             const medDiv = div.querySelector('#historico-medicacoes');
-            if (medSnapshot.empty) medDiv.innerHTML = '<p>Sem registros.</p>';
-            else medSnapshot.forEach(doc => {
+            if (medSnap.empty) medDiv.innerHTML = '<p>Sem registros.</p>';
+            else medSnap.forEach(doc => {
                 const data = doc.data();
                 medDiv.innerHTML += `<p>${data.medicacoes.map(m => `${m.nome} (${m.dosagem}, ${m.posologia})`).join(', ')} - ${new Date(data.timestamp.toDate()).toLocaleString('pt-BR')}</p>`;
             });
 
-            mostrarModal('Registros do Paciente', div, 'sucesso');
+            mostrarModal('Dados do Paciente', div, 'sucesso');
+        }
+
+        async function salvarAnotacoesEditadas(pacienteId, anotacaoId) {
+            const anotacoes = document.getElementById('anotacoes-edit').value;
+            if (!anotacoes) {
+                alert('Digite uma anotação!');
+                return;
+            }
+            const data = {
+                anotacoes,
+                pacienteId,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            try {
+                if (anotacaoId) {
+                    await db.collection('AnotacoesMedicas').doc(anotacaoId).update(data);
+                } else {
+                    await db.collection('AnotacoesMedicas').add(data);
+                }
+                mostrarModal('Sucesso', 'Anotação salva com sucesso!', 'sucesso');
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                alert('Erro ao salvar a anotação.');
+            }
         }
 
         async function verPerfilPaciente(pacienteId) {
@@ -968,54 +1000,6 @@
         async function excluirUsuario(id) {
             if (confirm('Deseja realmente excluir este usuário?')) {
                 await db.collection('Alunos').doc(id).delete();
-                fecharModal();
-            }
-        }
-
-        async function editarPaciente(id) {
-            const doc = await db.collection('Pacientes').doc(id).get();
-            const paciente = doc.data();
-
-            const form = document.createElement('form');
-            form.className = 'edit-form';
-            form.innerHTML = `
-                <input type="text" name="nomeCompleto" value="${paciente.nomeCompleto}" placeholder="Nome Completo" required>
-                <input type="date" name="dataNascimento" value="${paciente.dataNascimento}" required>
-                <input type="email" name="email" value="${paciente.email || ''}" placeholder="Email (opcional)">
-                <input type="text" name="cartaoSus" value="${paciente.cartaoSus || ''}" placeholder="Cartão SUS (opcional)">
-                <input type="text" name="whatsapp" value="${paciente.whatsapp}" placeholder="WhatsApp" required>
-                <input type="text" name="senha" value="${paciente.senha}" placeholder="Senha" required>
-                <button type="submit">Salvar</button>
-                <button type="button" onclick="excluirPaciente('${id}')">Excluir</button>
-            `;
-
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const data = {
-                    nomeCompleto: form.nomeCompleto.value,
-                    dataNascimento: form.dataNascimento.value,
-                    email: form.email.value,
-                    cartaoSus: form.cartaoSus.value,
-                    whatsapp: form.whatsapp.value,
-                    senha: form.senha.value,
-                    usuario: paciente.usuario
-                };
-
-                try {
-                    await db.collection('Pacientes').doc(id).update(data);
-                    fecharModal();
-                } catch (error) {
-                    console.error('Erro ao atualizar paciente:', error);
-                    alert('Erro ao salvar as alterações: ' + error.message);
-                }
-            });
-
-            mostrarModal('Editar Paciente', form, 'sucesso');
-        }
-
-        async function excluirPaciente(id) {
-            if (confirm('Deseja realmente excluir este paciente?')) {
-                await db.collection('Pacientes').doc(id).delete();
                 fecharModal();
             }
         }
