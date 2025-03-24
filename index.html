@@ -76,14 +76,6 @@
             background: #4caf50;
         }
 
-        button.registros-btn {
-            background: #2196f3;
-        }
-
-        button.registros-btn:hover:not(:disabled) {
-            background: #1976d2;
-        }
-
         input, select, textarea {
             width: 100%;
             padding: 8px;
@@ -331,7 +323,6 @@
             font-size: 0.8rem;
         }
 
-        /* Estilos adicionais para o Módulo 4 */
         .water-counter {
             display: flex;
             align-items: center;
@@ -441,6 +432,7 @@
         <div id="mensagem-admin" class="hidden">
             <p><strong>Mensagem do Administrador:</strong> <span id="texto-mensagem"></span></p>
         </div>
+        <input type="text" class="search-bar" id="search-pacientes" placeholder="Pesquisar pacientes...">
         <div class="patient-list" id="lista-pacientes-aluno"></div>
         <button class="back-btn" onclick="sairAreaAluno()">Sair</button>
     </div>
@@ -488,7 +480,19 @@
     <!-- Tela de Módulos do Paciente -->
     <div id="tela-modulos" class="container hidden">
         <h1 id="paciente-nome">Módulos</h1>
-        <div id="module-content"></div>
+        <div class="abas">
+            <button onclick="mostrarAbaPaciente('modulos');" class="aba-btn active">Módulos</button>
+            <button onclick="mostrarAbaPaciente('historico'); carregarHistoricoPaciente(currentPacienteId);" class="aba-btn">Histórico</button>
+        </div>
+        <div id="aba-modulos" class="aba visible">
+            <div id="module-content"></div>
+        </div>
+        <div id="aba-historico" class="aba">
+            <div id="historico-pa" class="module-container"></div>
+            <div id="historico-anotacoes" class="module-container"></div>
+            <div id="historico-medicacoes" class="module-container"></div>
+            <div id="historico-agua" class="module-container"></div>
+        </div>
         <button class="back-btn" onclick="sairAreaPaciente()">Sair</button>
     </div>
 
@@ -581,8 +585,15 @@
         }
 
         function mostrarAba(aba) {
-            document.querySelectorAll('.aba').forEach(aba => aba.classList.add('hidden'));
-            document.getElementById(`aba-${aba}`).classList.remove('hidden');
+            document.querySelectorAll('.aba').forEach(aba => aba.classList.remove('visible'));
+            document.getElementById(`aba-${aba}`).classList.add('visible');
+        }
+
+        function mostrarAbaPaciente(aba) {
+            document.querySelectorAll('#tela-modulos .aba').forEach(aba => aba.classList.remove('visible'));
+            document.querySelectorAll('#tela-modulos .aba-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`aba-${aba}`).classList.add('visible');
+            document.querySelector(`button[onclick="mostrarAbaPaciente('${aba}');"]`).classList.add('active');
         }
 
         function sairAreaAluno() {
@@ -646,15 +657,20 @@
 
         async function carregarPacientesAluno() {
             const lista = document.getElementById('lista-pacientes-aluno');
+            const search = document.getElementById('search-pacientes');
             if (pacientesListener) pacientesListener();
 
             pacientesListener = db.collection('Pacientes').onSnapshot(async snapshot => {
                 lista.innerHTML = '';
                 const pacientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-                pacientes.sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
+                const filteredPacientes = pacientes.filter(p => 
+                    p.nomeCompleto.toLowerCase().includes(search.value.toLowerCase())
+                );
 
-                for (const paciente of pacientes) {
+                filteredPacientes.sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
+
+                for (const paciente of filteredPacientes) {
                     const modulosDoc = await db.collection('ModulosAtivos').doc(paciente.id).get();
                     const modulosAtivos = modulosDoc.exists ? modulosDoc.data().modulos || [] : [];
 
@@ -670,12 +686,14 @@
                             <button class="module-btn ${modulosAtivos.includes('medicacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'medicacoes', this)">Medicações</button>
                             <button class="module-btn ${modulosAtivos.includes('modulo4') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'modulo4', this)">Lembrete Água</button>
                             <button class="profile-btn" onclick="verPerfilPaciente('${paciente.id}')">👤</button>
-                            <button class="registros-btn" onclick="verRegistrosPaciente('${paciente.id}')">Registros</button>
                         </div>
                     `;
                     lista.appendChild(div);
                 }
             });
+
+            search.removeEventListener('input', carregarPacientesAluno);
+            search.addEventListener('input', carregarPacientesAluno);
         }
 
         async function toggleModulo(pacienteId, modulo, button) {
@@ -714,10 +732,8 @@
                         <input type="text" id="pa_${pacienteId}" placeholder="Pressão Arterial (ex: 120/80)">
                         <input type="number" id="glicemia_${pacienteId}" placeholder="Glicemia (mg/dL)">
                         <button onclick="salvarPA('${pacienteId}')">Adicionar Aferição</button>
-                        <div class="records-list" id="pa-list_${pacienteId}"></div>
                     `;
                     content.appendChild(container);
-                    carregarListaPA(pacienteId);
                 }
 
                 if (modulosAtivos.includes('anotacoes')) {
@@ -727,10 +743,8 @@
                         <h3>Anotações Médicas</h3>
                         <textarea id="anotacoes_${pacienteId}" placeholder="Digite suas anotações médicas" rows="5"></textarea>
                         <button onclick="salvarAnotacoes('${pacienteId}')">Salvar</button>
-                        <div class="records-list" id="anotacoes-list_${pacienteId}"></div>
                     `;
                     content.appendChild(container);
-                    carregarListaAnotacoes(pacienteId);
                 }
 
                 if (modulosAtivos.includes('medicacoes')) {
@@ -748,10 +762,8 @@
                         </div>
                         <button onclick="adicionarMedicacao('${pacienteId}')">+ Adicionar Medicação</button>
                         <button onclick="salvarMedicacoes('${pacienteId}')">Salvar</button>
-                        <div class="records-list" id="medicacoes-list_${pacienteId}"></div>
                     `;
                     content.appendChild(container);
-                    carregarListaMedicacoes(pacienteId);
                 }
 
                 if (modulosAtivos.includes('modulo4')) {
@@ -772,7 +784,6 @@
                         <div class="timer-display" id="water-timer_${pacienteId}">Próximo lembrete: --:--</div>
                         <button onclick="iniciarTimerAgua('${pacienteId}')">Iniciar Lembrete (2h)</button>
                         <div class="water-alert" id="water-alert_${pacienteId}">Hora de beber água!</div>
-                        <div class="records-list" id="water-list_${pacienteId}"></div>
                     `;
                     content.appendChild(container);
                     carregarDadosAgua(pacienteId);
@@ -784,7 +795,221 @@
             });
         }
 
-        // Funções do Módulo 4 - Lembrete de Água
+        async function carregarHistoricoPaciente(pacienteId) {
+            // Histórico de P.A. e Glicemia
+            const paContainer = document.getElementById('historico-pa');
+            paContainer.innerHTML = '<h3>P.A. e Glicemia</h3>';
+            const paSnapshot = await db.collection('RegistrosPAeGlicemia')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            if (paSnapshot.empty) {
+                paContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                const list = document.createElement('div');
+                list.className = 'records-list';
+                paSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const item = document.createElement('div');
+                    item.className = 'record-item';
+                    item.innerHTML = `
+                        <span>P.A: ${data.pa}, Glicemia: ${data.glicemia} mg/dL - ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                        <button class="delete-btn" onclick="apagarAfericao('${doc.id}', '${pacienteId}')">Apagar</button>
+                    `;
+                    list.appendChild(item);
+                });
+                paContainer.appendChild(list);
+            }
+
+            // Histórico de Anotações
+            const anotContainer = document.getElementById('historico-anotacoes');
+            anotContainer.innerHTML = '<h3>Anotações Médicas</h3>';
+            const anotSnapshot = await db.collection('AnotacoesMedicas')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            if (anotSnapshot.empty) {
+                anotContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                const list = document.createElement('div');
+                list.className = 'records-list';
+                anotSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const item = document.createElement('div');
+                    item.className = 'record-item';
+                    item.innerHTML = `
+                        <span>${data.anotacoes} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                        <button class="delete-btn" onclick="apagarAnotacao('${doc.id}', '${pacienteId}')">Apagar</button>
+                    `;
+                    list.appendChild(item);
+                });
+                anotContainer.appendChild(list);
+            }
+
+            // Histórico de Medicações
+            const medContainer = document.getElementById('historico-medicacoes');
+            medContainer.innerHTML = '<h3>Medicações</h3>';
+            const medSnapshot = await db.collection('Medicacoes')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            if (medSnapshot.empty) {
+                medContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                const list = document.createElement('div');
+                list.className = 'records-list';
+                medSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const item = document.createElement('div');
+                    item.className = 'record-item';
+                    item.innerHTML = `
+                        <span>${data.medicacoes.map(m => `${m.nome} (${m.dosagem}, ${m.posologia})`).join(', ')} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                        <button class="delete-btn" onclick="apagarMedicacao('${doc.id}', '${pacienteId}')">Apagar</button>
+                    `;
+                    list.appendChild(item);
+                });
+                medContainer.appendChild(list);
+            }
+
+            // Histórico de Água
+            const aguaContainer = document.getElementById('historico-agua');
+            aguaContainer.innerHTML = '<h3>Ingestão de Água</h3>';
+            const aguaSnapshot = await db.collection('HistoricoAgua')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            if (aguaSnapshot.empty) {
+                aguaContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                const list = document.createElement('div');
+                list.className = 'records-list';
+                aguaSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const item = document.createElement('div');
+                    item.className = 'record-item';
+                    item.innerHTML = `<span>${data.acao} - ${new Date(data.data).toLocaleString('pt-BR')}</span>`;
+                    list.appendChild(item);
+                });
+                aguaContainer.appendChild(list);
+            }
+        }
+
+        async function salvarPA(pacienteId) {
+            const pa = document.getElementById(`pa_${pacienteId}`).value;
+            const glicemia = document.getElementById(`glicemia_${pacienteId}`).value;
+            if (!pa || !glicemia) {
+                alert('Preencha ambos os campos!');
+                return;
+            }
+            const data = {
+                pa,
+                glicemia: parseInt(glicemia),
+                data: new Date().toISOString(),
+                pacienteId,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            try {
+                await db.collection('RegistrosPAeGlicemia').add(data);
+                document.getElementById(`pa_${pacienteId}`).value = '';
+                document.getElementById(`glicemia_${pacienteId}`).value = '';
+                alert('Aferição salva com sucesso!');
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                alert('Erro ao salvar a aferição.');
+            }
+        }
+
+        async function apagarAfericao(afericaoId, pacienteId) {
+            if (confirm('Deseja apagar esta aferição?')) {
+                await db.collection('RegistrosPAeGlicemia').doc(afericaoId).delete();
+                carregarHistoricoPaciente(pacienteId);
+            }
+        }
+
+        async function salvarAnotacoes(pacienteId) {
+            const anotacoes = document.getElementById(`anotacoes_${pacienteId}`).value;
+            if (!anotacoes) {
+                alert('Digite uma anotação!');
+                return;
+            }
+            const data = {
+                anotacoes,
+                pacienteId,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                data: new Date().toISOString()
+            };
+            try {
+                await db.collection('AnotacoesMedicas').add(data);
+                document.getElementById(`anotacoes_${pacienteId}`).value = '';
+                alert('Anotação salva com sucesso!');
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                alert('Erro ao salvar a anotação.');
+            }
+        }
+
+        async function apagarAnotacao(anotacaoId, pacienteId) {
+            if (confirm('Deseja apagar esta anotação?')) {
+                await db.collection('AnotacoesMedicas').doc(anotacaoId).delete();
+                carregarHistoricoPaciente(pacienteId);
+            }
+        }
+
+        function adicionarMedicacao(pacienteId) {
+            const list = document.getElementById(`medication-list_${pacienteId}`);
+            const entry = document.createElement('div');
+            entry.className = 'medication-entry';
+            entry.innerHTML = `
+                <input type="text" name="nome" placeholder="Nome da medicação">
+                <input type="text" name="dosagem" placeholder="Dosagem">
+                <input type="text" name="posologia" placeholder="Posologia">
+                <button type="button" onclick="removerMedicacao(this)">-</button>
+            `;
+            list.appendChild(entry);
+        }
+
+        function removerMedicacao(button) {
+            const entry = button.parentElement;
+            if (entry.parentElement.querySelectorAll('.medication-entry').length > 1) {
+                entry.remove();
+            }
+        }
+
+        async function salvarMedicacoes(pacienteId) {
+            const entries = document.querySelectorAll(`#medication-list_${pacienteId} .medication-entry`);
+            const medicacoes = Array.from(entries).map(entry => ({
+                nome: entry.querySelector('[name="nome"]').value,
+                dosagem: entry.querySelector('[name="dosagem"]').value,
+                posologia: entry.querySelector('[name="posologia"]').value
+            })).filter(m => m.nome && m.dosagem && m.posologia);
+            
+            if (medicacoes.length === 0) {
+                alert('Adicione pelo menos uma medicação válida!');
+                return;
+            }
+            
+            const data = {
+                medicacoes,
+                pacienteId,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                data: new Date().toISOString()
+            };
+            try {
+                await db.collection('Medicacoes').add(data);
+                alert('Medicações salvas com sucesso!');
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                alert('Erro ao salvar as medicações.');
+            }
+        }
+
+        async function apagarMedicacao(medicacaoId, pacienteId) {
+            if (confirm('Deseja apagar esta medicação?')) {
+                await db.collection('Medicacoes').doc(medicacaoId).delete();
+                carregarHistoricoPaciente(pacienteId);
+            }
+        }
+
         async function carregarDadosAgua(pacienteId) {
             const today = new Date().toISOString().split('T')[0];
             const docRef = db.collection('IngestaoAgua').doc(`${pacienteId}_${today}`);
@@ -800,7 +1025,6 @@
             document.getElementById(`water-count_${pacienteId}`).textContent = count;
             document.getElementById(`water-goal_${pacienteId}`).value = goal;
             atualizarProgressoAgua(pacienteId, count, goal);
-            carregarListaAgua(pacienteId);
         }
 
         async function adicionarAgua(pacienteId) {
@@ -876,19 +1100,19 @@
             const progressBar = document.getElementById(`water-progress_${pacienteId}`);
             progressBar.style.width = `${Math.min(progress, 100)}%`;
             if (count >= goal) {
-                progressBar.style.background = '#4caf50'; // Verde quando atinge a meta
+                progressBar.style.background = '#4caf50';
             } else {
-                progressBar.style.background = '#2196f3'; // Azul padrão
+                progressBar.style.background = '#2196f3';
             }
         }
 
         function iniciarTimerAgua(pacienteId) {
-            const TWO_HOURS = 2 * 60 * 60 * 1000; // 2 horas em milissegundos
+            const TWO_HOURS = 2 * 60 * 60 * 1000;
             const timerDisplay = document.getElementById(`water-timer_${pacienteId}`);
             const alertBox = document.getElementById(`water-alert_${pacienteId}`);
 
             let timeLeft = TWO_HOURS;
-            clearInterval(window[`timer_${pacienteId}`]); // Limpa timer anterior
+            clearInterval(window[`timer_${pacienteId}`]);
 
             window[`timer_${pacienteId}`] = setInterval(() => {
                 timeLeft -= 1000;
@@ -899,9 +1123,9 @@
                 if (timeLeft <= 0) {
                     clearInterval(window[`timer_${pacienteId}`]);
                     alertBox.style.display = 'block';
-                    setTimeout(() => alertBox.style.display = 'none', 5000); // Alerta desaparece após 5s
-                    timeLeft = TWO_HOURS; // Reinicia o timer
-                    window[`timer_${pacienteId}`] = setInterval(arguments.callee, 1000); // Reinicia a contagem
+                    setTimeout(() => alertBox.style.display = 'none', 5000);
+                    timeLeft = TWO_HOURS;
+                    window[`timer_${pacienteId}`] = setInterval(arguments.callee, 1000);
                 }
             }, 1000);
         }
@@ -913,302 +1137,6 @@
                 data: new Date().toISOString(),
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
-            carregarListaAgua(pacienteId);
-        }
-
-        async function carregarListaAgua(pacienteId) {
-            const list = document.getElementById(`water-list_${pacienteId}`);
-            list.innerHTML = '';
-            const snapshot = await db.collection('HistoricoAgua')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .limit(5) // Limita a 5 registros recentes
-                .get();
-
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                const item = document.createElement('div');
-                item.className = 'record-item';
-                item.innerHTML = `
-                    <span>${data.acao} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
-                `;
-                list.appendChild(item);
-            });
-        }
-
-        async function salvarPA(pacienteId) {
-            const pa = document.getElementById(`pa_${pacienteId}`).value;
-            const glicemia = document.getElementById(`glicemia_${pacienteId}`).value;
-            if (!pa || !glicemia) {
-                alert('Preencha ambos os campos!');
-                return;
-            }
-            const data = {
-                pa,
-                glicemia: parseInt(glicemia),
-                data: new Date().toISOString(),
-                pacienteId,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            try {
-                const docRef = await db.collection('RegistrosPAeGlicemia').add(data);
-                document.getElementById(`pa_${pacienteId}`).value = '';
-                document.getElementById(`glicemia_${pacienteId}`).value = '';
-                carregarListaPA(pacienteId);
-                alert('Aferição salva com sucesso!');
-            } catch (error) {
-                console.error('Erro ao salvar:', error);
-                alert('Erro ao salvar a aferição.');
-            }
-        }
-
-        async function carregarListaPA(pacienteId) {
-            const list = document.getElementById(`pa-list_${pacienteId}`);
-            list.innerHTML = '';
-            const snapshot = await db.collection('RegistrosPAeGlicemia')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .get();
-            
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                const item = document.createElement('div');
-                item.className = 'record-item';
-                item.innerHTML = `
-                    <span>Aferição: P.A ${data.pa}, Glicemia: ${data.glicemia} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
-                    <button class="delete-btn" onclick="apagarAfericao('${doc.id}', '${pacienteId}')">Apagar</button>
-                `;
-                list.appendChild(item);
-            });
-        }
-
-        async function apagarAfericao(afericaoId, pacienteId) {
-            if (confirm('Deseja apagar esta aferição?')) {
-                await db.collection('RegistrosPAeGlicemia').doc(afericaoId).delete();
-                carregarListaPA(pacienteId);
-            }
-        }
-
-        async function salvarAnotacoes(pacienteId) {
-            const anotacoes = document.getElementById(`anotacoes_${pacienteId}`).value;
-            if (!anotacoes) {
-                alert('Digite uma anotação!');
-                return;
-            }
-            const data = {
-                anotacoes,
-                pacienteId,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                data: new Date().toISOString()
-            };
-            try {
-                await db.collection('AnotacoesMedicas').add(data);
-                document.getElementById(`anotacoes_${pacienteId}`).value = '';
-                carregarListaAnotacoes(pacienteId);
-                alert('Anotação salva com sucesso!');
-            } catch (error) {
-                console.error('Erro ao salvar:', error);
-                alert('Erro ao salvar a anotação.');
-            }
-        }
-
-        async function carregarListaAnotacoes(pacienteId) {
-            const list = document.getElementById(`anotacoes-list_${pacienteId}`);
-            list.innerHTML = '';
-            const snapshot = await db.collection('AnotacoesMedicas')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .get();
-            
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                const item = document.createElement('div');
-                item.className = 'record-item';
-                item.innerHTML = `
-                    <span>Anotação: ${data.anotacoes} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
-                    <button class="delete-btn" onclick="apagarAnotacao('${doc.id}', '${pacienteId}')">Apagar</button>
-                `;
-                list.appendChild(item);
-            });
-        }
-
-        async function apagarAnotacao(anotacaoId, pacienteId) {
-            if (confirm('Deseja apagar esta anotação?')) {
-                await db.collection('AnotacoesMedicas').doc(anotacaoId).delete();
-                carregarListaAnotacoes(pacienteId);
-            }
-        }
-
-        function adicionarMedicacao(pacienteId) {
-            const list = document.getElementById(`medication-list_${pacienteId}`);
-            const entry = document.createElement('div');
-            entry.className = 'medication-entry';
-            entry.innerHTML = `
-                <input type="text" name="nome" placeholder="Nome da medicação">
-                <input type="text" name="dosagem" placeholder="Dosagem">
-                <input type="text" name="posologia" placeholder="Posologia">
-                <button type="button" onclick="removerMedicacao(this)">-</button>
-            `;
-            list.appendChild(entry);
-        }
-
-        function removerMedicacao(button) {
-            const entry = button.parentElement;
-            if (entry.parentElement.querySelectorAll('.medication-entry').length > 1) {
-                entry.remove();
-            }
-        }
-
-        async function salvarMedicacoes(pacienteId) {
-            const entries = document.querySelectorAll(`#medication-list_${pacienteId} .medication-entry`);
-            const medicacoes = Array.from(entries).map(entry => ({
-                nome: entry.querySelector('[name="nome"]').value,
-                dosagem: entry.querySelector('[name="dosagem"]').value,
-                posologia: entry.querySelector('[name="posologia"]').value
-            })).filter(m => m.nome && m.dosagem && m.posologia);
-            
-            if (medicacoes.length === 0) {
-                alert('Adicione pelo menos uma medicação válida!');
-                return;
-            }
-            
-            const data = {
-                medicacoes,
-                pacienteId,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                data: new Date().toISOString()
-            };
-            try {
-                await db.collection('Medicacoes').add(data);
-                carregarListaMedicacoes(pacienteId);
-                alert('Medicações salvas com sucesso!');
-            } catch (error) {
-                console.error('Erro ao salvar:', error);
-                alert('Erro ao salvar as medicações.');
-            }
-        }
-
-        async function carregarListaMedicacoes(pacienteId) {
-            const list = document.getElementById(`medicacoes-list_${pacienteId}`);
-            list.innerHTML = '';
-            const snapshot = await db.collection('Medicacoes')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .get();
-            
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                const item = document.createElement('div');
-                item.className = 'record-item';
-                item.innerHTML = `
-                    <span>Medicação: ${data.medicacoes.map(m => `${m.nome} (${m.dosagem}, ${m.posologia})`).join(', ')} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
-                    <button class="delete-btn" onclick="apagarMedicacao('${doc.id}', '${pacienteId}')">Apagar</button>
-                `;
-                list.appendChild(item);
-            });
-        }
-
-        async function apagarMedicacao(medicacaoId, pacienteId) {
-            if (confirm('Deseja apagar esta medicação?')) {
-                await db.collection('Medicacoes').doc(medicacaoId).delete();
-                carregarListaMedicacoes(pacienteId);
-            }
-        }
-
-        async function verRegistrosPaciente(pacienteId) {
-            const pacienteDoc = await db.collection('Pacientes').doc(pacienteId).get();
-            const pacienteNome = pacienteDoc.data().nomeCompleto;
-
-            const registrosDiv = document.createElement('div');
-            registrosDiv.innerHTML = `
-                <h3>Registros de ${pacienteNome}</h3>
-                <div id="registros-pa"></div>
-                <div id="registros-anotacoes"></div>
-                <div id="registros-medicacoes"></div>
-                <div id="registros-agua"></div>
-            `;
-
-            // Carregar P.A. e Glicemia
-            const paSnapshot = await db.collection('RegistrosPAeGlicemia')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .get();
-            const paList = registrosDiv.querySelector('#registros-pa');
-            paList.innerHTML = '<h4>P.A. e Glicemia</h4>';
-            if (paSnapshot.empty) {
-                paList.innerHTML += '<p>Nenhum registro encontrado.</p>';
-            } else {
-                paSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    paList.innerHTML += `
-                        <div class="record-item">
-                            <span>P.A: ${data.pa}, Glicemia: ${data.glicemia} mg/dL - ${new Date(data.data).toLocaleString('pt-BR')}</span>
-                        </div>
-                    `;
-                });
-            }
-
-            // Carregar Anotações
-            const anotSnapshot = await db.collection('AnotacoesMedicas')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .get();
-            const anotList = registrosDiv.querySelector('#registros-anotacoes');
-            anotList.innerHTML = '<h4>Anotações Médicas</h4>';
-            if (anotSnapshot.empty) {
-                anotList.innerHTML += '<p>Nenhum registro encontrado.</p>';
-            } else {
-                anotSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    anotList.innerHTML += `
-                        <div class="record-item">
-                            <span>${data.anotacoes} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
-                        </div>
-                    `;
-                });
-            }
-
-            // Carregar Medicações
-            const medSnapshot = await db.collection('Medicacoes')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .get();
-            const medList = registrosDiv.querySelector('#registros-medicacoes');
-            medList.innerHTML = '<h4>Medicações</h4>';
-            if (medSnapshot.empty) {
-                medList.innerHTML += '<p>Nenhum registro encontrado.</p>';
-            } else {
-                medSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    medList.innerHTML += `
-                        <div class="record-item">
-                            <span>${data.medicacoes.map(m => `${m.nome} (${m.dosagem}, ${m.posologia})`).join(', ')} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
-                        </div>
-                    `;
-                });
-            }
-
-            // Carregar Histórico de Água
-            const aguaSnapshot = await db.collection('HistoricoAgua')
-                .where('pacienteId', '==', pacienteId)
-                .orderBy('timestamp', 'desc')
-                .get();
-            const aguaList = registrosDiv.querySelector('#registros-agua');
-            aguaList.innerHTML = '<h4>Ingestão de Água</h4>';
-            if (aguaSnapshot.empty) {
-                aguaList.innerHTML += '<p>Nenhum registro encontrado.</p>';
-            } else {
-                aguaSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    aguaList.innerHTML += `
-                        <div class="record-item">
-                            <span>${data.acao} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
-                        </div>
-                    `;
-                });
-            }
-
-            mostrarModal(`Registros de ${pacienteNome}`, registrosDiv, 'sucesso');
         }
 
         async function verPerfilPaciente(pacienteId) {
