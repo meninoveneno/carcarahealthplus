@@ -330,6 +330,48 @@
             padding: 5px 10px;
             font-size: 0.8rem;
         }
+
+        /* Estilos adicionais para o Módulo 4 */
+        .water-counter {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .water-counter span {
+            font-size: 1.2rem;
+        }
+
+        .water-progress {
+            width: 100%;
+            height: 20px;
+            background: #2c3e50;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .water-progress-fill {
+            height: 100%;
+            background: #2196f3;
+            transition: width 0.5s ease;
+        }
+
+        .timer-display {
+            font-size: 1rem;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        .water-alert {
+            background: #ffeb3b;
+            color: black;
+            padding: 8px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -626,7 +668,7 @@
                             <button class="module-btn ${modulosAtivos.includes('pa_glicemia') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'pa_glicemia', this)">P.A./Glicemia</button>
                             <button class="module-btn ${modulosAtivos.includes('anotacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'anotacoes', this)">Anotações</button>
                             <button class="module-btn ${modulosAtivos.includes('medicacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'medicacoes', this)">Medicações</button>
-                            <button class="module-btn ${modulosAtivos.includes('modulo4') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'modulo4', this)">Módulo 4</button>
+                            <button class="module-btn ${modulosAtivos.includes('modulo4') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'modulo4', this)">Lembrete Água</button>
                             <button class="profile-btn" onclick="verPerfilPaciente('${paciente.id}')">👤</button>
                             <button class="registros-btn" onclick="verRegistrosPaciente('${paciente.id}')">Registros</button>
                         </div>
@@ -715,13 +757,182 @@
                 if (modulosAtivos.includes('modulo4')) {
                     const container = document.createElement('div');
                     container.className = 'module-container';
-                    container.innerHTML = `<h3>Módulo 4</h3><p>Funcionalidade ainda não implementada.</p>`;
+                    container.innerHTML = `
+                        <h3>Lembrete de Ingestão de Água</h3>
+                        <div class="water-counter">
+                            <button onclick="diminuirAgua('${pacienteId}')">-</button>
+                            <span id="water-count_${pacienteId}">0</span> copos (200ml)
+                            <button onclick="adicionarAgua('${pacienteId}')">+</button>
+                        </div>
+                        <div class="water-progress">
+                            <div class="water-progress-fill" id="water-progress_${pacienteId}" style="width: 0%"></div>
+                        </div>
+                        <input type="number" id="water-goal_${pacienteId}" placeholder="Meta diária (copos)" min="1">
+                        <button onclick="definirMetaAgua('${pacienteId}')">Definir Meta</button>
+                        <div class="timer-display" id="water-timer_${pacienteId}">Próximo lembrete: --:--</div>
+                        <button onclick="iniciarTimerAgua('${pacienteId}')">Iniciar Lembrete (2h)</button>
+                        <div class="water-alert" id="water-alert_${pacienteId}">Hora de beber água!</div>
+                        <div class="records-list" id="water-list_${pacienteId}"></div>
+                    `;
                     content.appendChild(container);
+                    carregarDadosAgua(pacienteId);
                 }
 
                 if (modulosAtivos.length === 0) {
                     content.innerHTML = '<p>Nenhum módulo ativo para este paciente.</p>';
                 }
+            });
+        }
+
+        // Funções do Módulo 4 - Lembrete de Água
+        async function carregarDadosAgua(pacienteId) {
+            const today = new Date().toISOString().split('T')[0];
+            const docRef = db.collection('IngestaoAgua').doc(`${pacienteId}_${today}`);
+            const doc = await docRef.get();
+
+            let count = 0;
+            let goal = 8; // Meta padrão: 8 copos
+            if (doc.exists) {
+                count = doc.data().copos || 0;
+                goal = doc.data().meta || 8;
+            }
+
+            document.getElementById(`water-count_${pacienteId}`).textContent = count;
+            document.getElementById(`water-goal_${pacienteId}`).value = goal;
+            atualizarProgressoAgua(pacienteId, count, goal);
+            carregarListaAgua(pacienteId);
+        }
+
+        async function adicionarAgua(pacienteId) {
+            const today = new Date().toISOString().split('T')[0];
+            const docRef = db.collection('IngestaoAgua').doc(`${pacienteId}_${today}`);
+            const doc = await docRef.get();
+            let count = doc.exists ? doc.data().copos || 0 : 0;
+            let goal = doc.exists ? doc.data().meta || 8 : 8;
+
+            count++;
+            await docRef.set({
+                copos: count,
+                meta: goal,
+                pacienteId,
+                data: today,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+
+            document.getElementById(`water-count_${pacienteId}`).textContent = count;
+            atualizarProgressoAgua(pacienteId, count, goal);
+            registrarHistoricoAgua(pacienteId, 'Adicionou 1 copo');
+        }
+
+        async function diminuirAgua(pacienteId) {
+            const today = new Date().toISOString().split('T')[0];
+            const docRef = db.collection('IngestaoAgua').doc(`${pacienteId}_${today}`);
+            const doc = await docRef.get();
+            let count = doc.exists ? doc.data().copos || 0 : 0;
+            let goal = doc.exists ? doc.data().meta || 8 : 8;
+
+            if (count > 0) {
+                count--;
+                await docRef.set({
+                    copos: count,
+                    meta: goal,
+                    pacienteId,
+                    data: today,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+
+                document.getElementById(`water-count_${pacienteId}`).textContent = count;
+                atualizarProgressoAgua(pacienteId, count, goal);
+                registrarHistoricoAgua(pacienteId, 'Removeu 1 copo');
+            }
+        }
+
+        async function definirMetaAgua(pacienteId) {
+            const today = new Date().toISOString().split('T')[0];
+            const goal = parseInt(document.getElementById(`water-goal_${pacienteId}`).value);
+            if (!goal || goal <= 0) {
+                alert('Defina uma meta válida!');
+                return;
+            }
+
+            const docRef = db.collection('IngestaoAgua').doc(`${pacienteId}_${today}`);
+            const doc = await docRef.get();
+            const count = doc.exists ? doc.data().copos || 0 : 0;
+
+            await docRef.set({
+                copos: count,
+                meta: goal,
+                pacienteId,
+                data: today,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+
+            atualizarProgressoAgua(pacienteId, count, goal);
+            alert('Meta definida com sucesso!');
+        }
+
+        function atualizarProgressoAgua(pacienteId, count, goal) {
+            const progress = (count / goal) * 100;
+            const progressBar = document.getElementById(`water-progress_${pacienteId}`);
+            progressBar.style.width = `${Math.min(progress, 100)}%`;
+            if (count >= goal) {
+                progressBar.style.background = '#4caf50'; // Verde quando atinge a meta
+            } else {
+                progressBar.style.background = '#2196f3'; // Azul padrão
+            }
+        }
+
+        function iniciarTimerAgua(pacienteId) {
+            const TWO_HOURS = 2 * 60 * 60 * 1000; // 2 horas em milissegundos
+            const timerDisplay = document.getElementById(`water-timer_${pacienteId}`);
+            const alertBox = document.getElementById(`water-alert_${pacienteId}`);
+
+            let timeLeft = TWO_HOURS;
+            clearInterval(window[`timer_${pacienteId}`]); // Limpa timer anterior
+
+            window[`timer_${pacienteId}`] = setInterval(() => {
+                timeLeft -= 1000;
+                const minutes = Math.floor((timeLeft / 1000 / 60) % 60);
+                const seconds = Math.floor((timeLeft / 1000) % 60);
+                timerDisplay.textContent = `Próximo lembrete: ${minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
+
+                if (timeLeft <= 0) {
+                    clearInterval(window[`timer_${pacienteId}`]);
+                    alertBox.style.display = 'block';
+                    setTimeout(() => alertBox.style.display = 'none', 5000); // Alerta desaparece após 5s
+                    timeLeft = TWO_HOURS; // Reinicia o timer
+                    window[`timer_${pacienteId}`] = setInterval(arguments.callee, 1000); // Reinicia a contagem
+                }
+            }, 1000);
+        }
+
+        async function registrarHistoricoAgua(pacienteId, acao) {
+            await db.collection('HistoricoAgua').add({
+                pacienteId,
+                acao,
+                data: new Date().toISOString(),
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            carregarListaAgua(pacienteId);
+        }
+
+        async function carregarListaAgua(pacienteId) {
+            const list = document.getElementById(`water-list_${pacienteId}`);
+            list.innerHTML = '';
+            const snapshot = await db.collection('HistoricoAgua')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .limit(5) // Limita a 5 registros recentes
+                .get();
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                const item = document.createElement('div');
+                item.className = 'record-item';
+                item.innerHTML = `
+                    <span>${data.acao} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                `;
+                list.appendChild(item);
             });
         }
 
@@ -914,6 +1125,7 @@
                 <div id="registros-pa"></div>
                 <div id="registros-anotacoes"></div>
                 <div id="registros-medicacoes"></div>
+                <div id="registros-agua"></div>
             `;
 
             // Carregar P.A. e Glicemia
@@ -971,6 +1183,26 @@
                     medList.innerHTML += `
                         <div class="record-item">
                             <span>${data.medicacoes.map(m => `${m.nome} (${m.dosagem}, ${m.posologia})`).join(', ')} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
+                        </div>
+                    `;
+                });
+            }
+
+            // Carregar Histórico de Água
+            const aguaSnapshot = await db.collection('HistoricoAgua')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            const aguaList = registrosDiv.querySelector('#registros-agua');
+            aguaList.innerHTML = '<h4>Ingestão de Água</h4>';
+            if (aguaSnapshot.empty) {
+                aguaList.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                aguaSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    aguaList.innerHTML += `
+                        <div class="record-item">
+                            <span>${data.acao} - ${new Date(data.data).toLocaleString('pt-BR')}</span>
                         </div>
                     `;
                 });
