@@ -33,7 +33,7 @@
             border-radius: 15px;
             box-shadow: 0 0 20px rgba(0,0,0,0.3);
             width: 90%;
-            max-width: 600px; /* Aumentado para suportar a lista */
+            max-width: 600px;
             color: white;
             position: relative;
         }
@@ -72,14 +72,19 @@
             cursor: not-allowed;
         }
 
+        button.active {
+            background: #4caf50; /* Verde para indicar ativo */
+        }
+
         input, select, textarea {
             width: 100%;
-            padding: 10px;
-            margin: 8px 0;
+            padding: 8px; /* Reduzido de 10px */
+            margin: 6px 0; /* Reduzido de 8px */
             background: #2c3e50;
             border: none;
             border-radius: 5px;
             color: white;
+            font-size: 0.9rem; /* Reduzido */
         }
 
         .hidden {
@@ -98,16 +103,14 @@
             left: 50%;
             transform: translate(-50%, -50%);
             background: rgba(26, 42, 74, 1);
-            padding: 2rem;
+            padding: 1.5rem; /* Reduzido de 2rem */
             border-radius: 10px;
             text-align: center;
             z-index: 1000;
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
             color: white;
             width: 90%;
-            max-width: 900px;
-            max-height: 80vh;
-            overflow-y: auto;
+            max-width: 700px; /* Reduzido de 900px */
         }
 
         .modal.pendente {
@@ -214,12 +217,12 @@
         .edit-form, .view-form {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            max-height: 80vh;
+            gap: 10px; /* Reduzido de 15px */
         }
 
         .edit-form textarea, .view-form textarea {
             grid-column: span 2;
+            height: 80px; /* Altura fixa para evitar rolagem */
         }
 
         .edit-form button, .view-form button {
@@ -227,7 +230,7 @@
         }
 
         .close-btn {
-            margin-top: 20px;
+            margin-top: 15px; /* Reduzido de 20px */
         }
 
         .medication-entry {
@@ -235,6 +238,13 @@
             grid-template-columns: 1fr 1fr 1fr auto;
             gap: 10px;
             margin-bottom: 10px;
+        }
+
+        .module-container {
+            background: #34495e;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -342,14 +352,11 @@
         </form>
     </div>
 
-    <!-- Tela de Módulos -->
+    <!-- Tela de Módulos do Paciente -->
     <div id="tela-modulos" class="container hidden">
-        <h1>Módulos</h1>
-        <div class="btn-group">
-            <button onclick="mostrarTela('modulo1')">Módulo 1</button>
-            <button onclick="mostrarTela('modulo2')">Módulo 2</button>
-            <button class="back-btn" onclick="mostrarTela('tela-inicial')">Voltar</button>
-        </div>
+        <h1 id="paciente-nome">Módulos</h1>
+        <div id="module-content"></div>
+        <button class="back-btn" onclick="mostrarTela('area-aluno')">Voltar</button>
     </div>
 
     <!-- Painel do Administrador -->
@@ -390,6 +397,8 @@
         let db, auth;
         let currentUserId = null;
         let pacientesListener = null;
+        let usuariosListener = null;
+        let selectedPacienteId = null;
 
         try {
             firebase.initializeApp(firebaseConfig);
@@ -443,10 +452,11 @@
         }
 
         function carregarUsuarios() {
+            if (usuariosListener) usuariosListener();
             const lista = document.getElementById('lista-usuarios');
             const search = document.getElementById('search-usuarios');
 
-            db.collection('Alunos').onSnapshot(snapshot => {
+            usuariosListener = db.collection('Alunos').onSnapshot(snapshot => {
                 lista.innerHTML = '';
                 const usuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -484,7 +494,8 @@
                 });
             });
 
-            search.addEventListener('input', () => carregarUsuarios());
+            search.removeEventListener('input', carregarUsuarios);
+            search.addEventListener('input', carregarUsuarios);
         }
 
         function carregarPacientes() {
@@ -536,10 +547,10 @@
                             <strong>${paciente.nomeCompleto}</strong>
                         </div>
                         <div>
-                            <button class="module-btn" onclick="abrirModuloPA('${paciente.id}')">P.A./Glicemia</button>
-                            <button class="module-btn" onclick="abrirModuloAnotacoes('${paciente.id}')">Anotações</button>
-                            <button class="module-btn" onclick="abrirModuloMedicacoes('${paciente.id}')">Medicações</button>
-                            <button class="module-btn" onclick="abrirModulo4('${paciente.id}')">Módulo 4</button>
+                            <button class="module-btn" onclick="ativarModuloPA('${paciente.id}', this)">P.A./Glicemia</button>
+                            <button class="module-btn" onclick="ativarModuloAnotacoes('${paciente.id}', this)">Anotações</button>
+                            <button class="module-btn" onclick="ativarModuloMedicacoes('${paciente.id}', this)">Medicações</button>
+                            <button class="module-btn" onclick="ativarModulo4('${paciente.id}', this)">Módulo 4</button>
                             <button class="profile-btn" onclick="verPerfilPaciente('${paciente.id}')">👤</button>
                         </div>
                     `;
@@ -548,67 +559,86 @@
             });
         }
 
-        function abrirModuloPA(pacienteId) {
-            const form = document.createElement('form');
-            form.innerHTML = `
-                <input type="text" name="pa" placeholder="Pressão Arterial (ex: 120/80)" required>
-                <input type="number" name="glicemia" placeholder="Glicemia (mg/dL)" required>
-                <input type="datetime-local" name="data" required>
-                <button type="submit">Salvar</button>
+        async function ativarModuloPA(pacienteId, button) {
+            button.classList.add('active');
+            selectedPacienteId = pacienteId;
+            const paciente = (await db.collection('Pacientes').doc(pacienteId).get()).data();
+            document.getElementById('paciente-nome').textContent = `Módulos - ${paciente.nomeCompleto}`;
+            const content = document.getElementById('module-content');
+            const container = document.createElement('div');
+            container.className = 'module-container';
+            container.innerHTML = `
+                <h3>P.A. e Glicemia</h3>
+                <input type="text" id="pa" placeholder="Pressão Arterial (ex: 120/80)" required>
+                <input type="number" id="glicemia" placeholder="Glicemia (mg/dL)" required>
+                <input type="datetime-local" id="data" required>
+                <button onclick="salvarPA('${pacienteId}')">Salvar</button>
             `;
-
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const data = {
-                    pa: form.pa.value,
-                    glicemia: parseInt(form.glicemia.value),
-                    data: form.data.value,
-                    pacienteId,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                };
-                try {
-                    await db.collection('RegistrosPAeGlicemia').add(data);
-                    fecharModal();
-                    mostrarModal('Sucesso', 'Registro salvo com sucesso!', 'sucesso');
-                } catch (error) {
-                    console.error('Erro ao salvar:', error);
-                    alert('Erro ao salvar o registro.');
-                }
-            });
-
-            mostrarModal('Registro de P.A. e Glicemia', form, 'sucesso');
+            content.innerHTML = '';
+            content.appendChild(container);
+            mostrarTela('tela-modulos');
         }
 
-        function abrirModuloAnotacoes(pacienteId) {
-            const form = document.createElement('form');
-            form.innerHTML = `
-                <textarea name="anotacoes" placeholder="Digite suas anotações médicas" rows="5" required></textarea>
-                <button type="submit">Salvar</button>
-            `;
-
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const data = {
-                    anotacoes: form.anotacoes.value,
-                    pacienteId,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                };
-                try {
-                    await db.collection('AnotacoesMedicas').add(data);
-                    fecharModal();
-                    mostrarModal('Sucesso', 'Anotação salva com sucesso!', 'sucesso');
-                } catch (error) {
-                    console.error('Erro ao salvar:', error);
-                    alert('Erro ao salvar a anotação.');
-                }
-            });
-
-            mostrarModal('Anotações Médicas', form, 'sucesso');
+        async function salvarPA(pacienteId) {
+            const data = {
+                pa: document.getElementById('pa').value,
+                glicemia: parseInt(document.getElementById('glicemia').value),
+                data: document.getElementById('data').value,
+                pacienteId,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            try {
+                await db.collection('RegistrosPAeGlicemia').add(data);
+                mostrarModal('Sucesso', 'Registro salvo com sucesso!', 'sucesso');
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                alert('Erro ao salvar o registro.');
+            }
         }
 
-        function abrirModuloMedicacoes(pacienteId) {
-            const form = document.createElement('form');
-            form.innerHTML = `
+        async function ativarModuloAnotacoes(pacienteId, button) {
+            button.classList.add('active');
+            selectedPacienteId = pacienteId;
+            const paciente = (await db.collection('Pacientes').doc(pacienteId).get()).data();
+            document.getElementById('paciente-nome').textContent = `Módulos - ${paciente.nomeCompleto}`;
+            const content = document.getElementById('module-content');
+            const container = document.createElement('div');
+            container.className = 'module-container';
+            container.innerHTML = `
+                <h3>Anotações Médicas</h3>
+                <textarea id="anotacoes" placeholder="Digite suas anotações médicas" rows="5" required></textarea>
+                <button onclick="salvarAnotacoes('${pacienteId}')">Salvar</button>
+            `;
+            content.innerHTML = '';
+            content.appendChild(container);
+            mostrarTela('tela-modulos');
+        }
+
+        async function salvarAnotacoes(pacienteId) {
+            const data = {
+                anotacoes: document.getElementById('anotacoes').value,
+                pacienteId,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            try {
+                await db.collection('AnotacoesMedicas').add(data);
+                mostrarModal('Sucesso', 'Anotação salva com sucesso!', 'sucesso');
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                alert('Erro ao salvar a anotação.');
+            }
+        }
+
+        async function ativarModuloMedicacoes(pacienteId, button) {
+            button.classList.add('active');
+            selectedPacienteId = pacienteId;
+            const paciente = (await db.collection('Pacientes').doc(pacienteId).get()).data();
+            document.getElementById('paciente-nome').textContent = `Módulos - ${paciente.nomeCompleto}`;
+            const content = document.getElementById('module-content');
+            const container = document.createElement('div');
+            container.className = 'module-container';
+            container.innerHTML = `
+                <h3>Registro de Medicações</h3>
                 <div id="medication-list">
                     <div class="medication-entry">
                         <input type="text" name="nome" placeholder="Nome da medicação" required>
@@ -617,34 +647,12 @@
                         <button type="button" onclick="removerMedicacao(this)">-</button>
                     </div>
                 </div>
-                <button type="button" onclick="adicionarMedicacao()">+ Adicionar Medicação</button>
-                <button type="submit">Salvar</button>
+                <button onclick="adicionarMedicacao()">+ Adicionar Medicação</button>
+                <button onclick="salvarMedicacoes('${pacienteId}')">Salvar</button>
             `;
-
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const entries = form.querySelectorAll('.medication-entry');
-                const medicacoes = Array.from(entries).map(entry => ({
-                    nome: entry.querySelector('[name="nome"]').value,
-                    dosagem: entry.querySelector('[name="dosagem"]').value,
-                    posologia: entry.querySelector('[name="posologia"]').value
-                }));
-                const data = {
-                    medicacoes,
-                    pacienteId,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                };
-                try {
-                    await db.collection('Medicacoes').add(data);
-                    fecharModal();
-                    mostrarModal('Sucesso', 'Medicações salvas com sucesso!', 'sucesso');
-                } catch (error) {
-                    console.error('Erro ao salvar:', error);
-                    alert('Erro ao salvar as medicações.');
-                }
-            });
-
-            mostrarModal('Registro de Medicações', form, 'sucesso');
+            content.innerHTML = '';
+            content.appendChild(container);
+            mostrarTela('tela-modulos');
         }
 
         function adicionarMedicacao() {
@@ -667,8 +675,39 @@
             }
         }
 
-        function abrirModulo4(pacienteId) {
-            mostrarModal('Módulo 4', 'Funcionalidade ainda não implementada.', 'sucesso');
+        async function salvarMedicacoes(pacienteId) {
+            const entries = document.querySelectorAll('.medication-entry');
+            const medicacoes = Array.from(entries).map(entry => ({
+                nome: entry.querySelector('[name="nome"]').value,
+                dosagem: entry.querySelector('[name="dosagem"]').value,
+                posologia: entry.querySelector('[name="posologia"]').value
+            }));
+            const data = {
+                medicacoes,
+                pacienteId,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            try {
+                await db.collection('Medicacoes').add(data);
+                mostrarModal('Sucesso', 'Medicações salvas com sucesso!', 'sucesso');
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                alert('Erro ao salvar as medicações.');
+            }
+        }
+
+        async function ativarModulo4(pacienteId, button) {
+            button.classList.add('active');
+            selectedPacienteId = pacienteId;
+            const paciente = (await db.collection('Pacientes').doc(pacienteId).get()).data();
+            document.getElementById('paciente-nome').textContent = `Módulos - ${paciente.nomeCompleto}`;
+            const content = document.getElementById('module-content');
+            const container = document.createElement('div');
+            container.className = 'module-container';
+            container.innerHTML = `<p>Funcionalidade ainda não implementada.</p>`;
+            content.innerHTML = '';
+            content.appendChild(container);
+            mostrarTela('tela-modulos');
         }
 
         async function verPerfilPaciente(pacienteId) {
@@ -711,7 +750,7 @@
                     <option value="pendente" ${usuario.status === 'pendente' ? 'selected' : ''}>Pendente</option>
                     <option value="negado" ${usuario.status === 'negado' ? 'selected' : ''}>Negado</option>
                 </select>
-                <textarea name="motivoNegacao" placeholder="Motivo da negação (obrigatório se negado)">${usuario.motivoNegacao || ''}</textarea>
+                <textarea name="motivoNegacao" placeholder="Motivo da negação">${usuario.motivoNegacao || ''}</textarea>
                 <button type="submit">Salvar</button>
                 <button type="button" onclick="excluirUsuario('${id}')">Excluir</button>
             `;
@@ -845,6 +884,7 @@
                     if (matricula === 'admin' && senha === 'admin') {
                         mostrarModal('Sucesso', 'Login como administrador realizado com sucesso!', 'sucesso');
                         mostrarTela('painel-admin');
+                        carregarUsuarios(); // Carrega usuários automaticamente
                         return;
                     }
 
@@ -871,6 +911,7 @@
                         currentUserId = alunoId;
                         if (aluno.admin === 'yes') {
                             mostrarTela('painel-admin');
+                            carregarUsuarios(); // Carrega usuários automaticamente
                         } else {
                             if (aluno.mensagemAdmin) {
                                 document.getElementById('mensagem-admin').classList.remove('hidden');
