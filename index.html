@@ -481,6 +481,24 @@
             margin-bottom: 5px;
             display: block;
         }
+
+        .form-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .form-buttons button {
+            flex: 1;
+        }
+
+        .btn-save {
+            background: #4caf50;
+        }
+
+        .btn-cancel {
+            background: #f44336;
+        }
     </style>
 </head>
 <body>
@@ -506,7 +524,7 @@
         <button class="close-btn" onclick="fecharProfileModal()">Fechar</button>
     </div>
 
-    <!-- Modal de Edição de Usuário -->
+    <!-- Modal de Edição de Usuário Atualizado -->
     <div class="modal" id="edit-user-modal">
         <h3>Editar Usuário</h3>
         <form id="edit-user-form" class="edit-user-form">
@@ -529,7 +547,8 @@
             </div>
             <div>
                 <label class="form-label">Senha</label>
-                <input type="password" id="edit-user-senha" required>
+                <input type="text" id="edit-user-senha" required>
+                <small style="color: #aaa;">Senha visível para edição</small>
             </div>
             <div>
                 <label class="form-label">Status</label>
@@ -546,8 +565,10 @@
                     <option value="admin">Administrador</option>
                 </select>
             </div>
-            <button type="submit">Salvar</button>
-            <button type="button" class="close-btn" onclick="fecharModal()">Cancelar</button>
+            <div class="form-buttons">
+                <button type="submit" class="btn-save">Salvar</button>
+                <button type="button" class="btn-cancel" onclick="fecharModal()">Cancelar</button>
+            </div>
         </form>
     </div>
 
@@ -647,7 +668,7 @@
         </form>
     </div>
 
-    <!-- Tela de Módulos do Paciente -->
+    <!-- Tela de Módulos do Paciente Atualizada -->
     <div id="tela-modulos" class="container hidden">
         <h1 id="paciente-nome">Módulos</h1>
         <div class="abas">
@@ -703,7 +724,7 @@
                     
                     <button type="submit" class="btn btn-primary">Salvar Módulo</button>
                     <button type="button" class="btn btn-secondary" onclick="limparFormularioModulo()">Cancelar</button>
-                    <button type="button" class="btn btn-danger" onclick="confirmarApagarModulo('${doc.id}')" id="btn-apagar-modulo" style="display: none;">Apagar Módulo</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmarApagarModulo()" id="btn-apagar-modulo" style="display: none;">Apagar Módulo</button>
                 </form>
             </div>
         </div>
@@ -804,6 +825,7 @@
 
         function fecharModal() {
             document.getElementById('modal').style.display = 'none';
+            document.getElementById('edit-user-modal').style.display = 'none';
             document.getElementById('overlay').style.display = 'none';
         }
 
@@ -851,6 +873,63 @@
             localStorage.removeItem('userSession');
             currentUserId = null;
             mostrarTela('tela-inicial');
+        }
+
+        // Função para abrir formulário de broadcast
+        async function abrirFormularioBroadcast() {
+            const content = document.createElement('div');
+            content.innerHTML = `
+                <textarea id="broadcast-text" placeholder="Digite sua mensagem para todos os alunos" rows="4" style="width: 100%; margin-bottom: 10px;"></textarea>
+                <button onclick="enviarBroadcast()" style="width: 100%;">Enviar Mensagem</button>
+            `;
+            mostrarModal('Enviar Mensagem para Todos', content);
+        }
+
+        // Função para enviar broadcast
+        async function enviarBroadcast() {
+            const mensagem = document.getElementById('broadcast-text').value.trim();
+            if (!mensagem) {
+                mostrarModal('Erro', 'Digite uma mensagem para enviar!', 'negado');
+                return;
+            }
+
+            try {
+                // Obter todos os alunos
+                const snapshot = await db.collection('Alunos').get();
+                const batch = db.batch();
+
+                snapshot.docs.forEach(doc => {
+                    const alunoRef = db.collection('Alunos').doc(doc.id);
+                    batch.update(alunoRef, {
+                        mensagemAdmin: mensagem,
+                        mensagemData: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                });
+
+                await batch.commit();
+                mostrarModal('Sucesso', 'Mensagem enviada para todos os alunos com sucesso!', 'sucesso');
+                fecharModal();
+            } catch (error) {
+                console.error('Erro ao enviar broadcast:', error);
+                mostrarModal('Erro', 'Erro ao enviar mensagem para os alunos!', 'negado');
+            }
+        }
+
+        // Função para verificar broadcast
+        async function verificarBroadcast() {
+            if (!currentUserId) return;
+
+            try {
+                const doc = await db.collection('Alunos').doc(currentUserId).get();
+                if (doc.exists && doc.data().mensagemAdmin) {
+                    document.getElementById('mensagem-admin').classList.remove('hidden');
+                    document.getElementById('texto-mensagem').textContent = doc.data().mensagemAdmin;
+                } else {
+                    document.getElementById('mensagem-admin').classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('Erro ao verificar broadcast:', error);
+            }
         }
 
         // Função para carregar módulos customizados
@@ -1182,72 +1261,124 @@
         }
 
         async function toggleModulo(pacienteId, modulo, button) {
-            // Verificar se é um módulo custom
-            const isCustomModule = modulo.startsWith('custom_');
-            
-            // Para módulos custom, usar ID direto
-            const moduloId = isCustomModule ? modulo.replace('custom_', '') : modulo;
+            try {
+                const docRef = db.collection('ModulosAtivos').doc(pacienteId);
+                const doc = await docRef.get();
+                let modulosAtivos = doc.exists ? doc.data().modulos || [] : [];
 
-            const docRef = db.collection('ModulosAtivos').doc(pacienteId);
-            const doc = await docRef.get();
-            let modulosAtivos = doc.exists ? doc.data().modulos || [] : [];
+                if (modulosAtivos.includes(modulo)) {
+                    modulosAtivos = modulosAtivos.filter(m => m !== modulo);
+                    button.classList.remove('active');
+                } else {
+                    modulosAtivos.push(modulo);
+                    button.classList.add('active');
+                }
 
-            if (modulosAtivos.includes(modulo)) {
-                modulosAtivos = modulosAtivos.filter(m => m !== modulo);
-                button.classList.remove('active');
-            } else {
-                modulosAtivos.push(modulo);
-                button.classList.add('active');
+                await docRef.set({ modulos: modulosAtivos }, { merge: true });
+                
+                // Atualizar a tela de módulos se estiver aberta para este paciente
+                if (currentPacienteId === pacienteId) {
+                    carregarModulosPaciente(pacienteId);
+                }
+            } catch (error) {
+                console.error('Erro ao alternar módulo:', error);
+                mostrarModal('Erro', 'Erro ao alternar módulo!', 'negado');
             }
-
-            await docRef.set({ modulos: modulosAtivos }, { merge: true });
         }
 
         async function carregarModulosPaciente(pacienteId) {
             const pacienteNome = document.getElementById('paciente-nome');
             const content = document.getElementById('module-content');
+            content.innerHTML = 'Carregando módulos...';
 
-            const pacienteDoc = await db.collection('Pacientes').doc(pacienteId).get();
-            pacienteNome.textContent = `Módulos - ${pacienteDoc.data().nomeCompleto}`;
+            try {
+                const pacienteDoc = await db.collection('Pacientes').doc(pacienteId).get();
+                if (!pacienteDoc.exists) {
+                    mostrarModal('Erro', 'Paciente não encontrado!', 'negado');
+                    return;
+                }
 
-            if (modulosListener) modulosListener();
-            modulosListener = db.collection('ModulosAtivos').doc(pacienteId).onSnapshot(async doc => {
+                pacienteNome.textContent = `Módulos - ${pacienteDoc.data().nomeCompleto}`;
+
+                // Carregar módulos ativos
+                const modulosDoc = await db.collection('ModulosAtivos').doc(pacienteId).get();
+                const modulosAtivos = modulosDoc.exists ? modulosDoc.data().modulos || [] : [];
+
+                // Carregar todos os módulos disponíveis
+                const customModulesSnapshot = await db.collection('custom_modules')
+                    .where('isActive', '==', true)
+                    .get();
+
                 content.innerHTML = '';
-                const modulosAtivos = doc.exists ? doc.data().modulos || [] : [];
 
-                // Módulos padrão (existente)
-                if (modulosAtivos.includes('pa_glicemia')) {
-                    const container = document.createElement('div');
-                    container.className = 'module-container';
-                    container.innerHTML = `
-                        <h3>P.A. e Glicemia</h3>
+                // Módulos padrão
+                const modulosPadrao = {
+                    'pa_glicemia': 'P.A. e Glicemia',
+                    'anotacoes': 'Anotações Médicas',
+                    'medicacoes': 'Medicações',
+                    'modulo4': 'Lembrete de Água'
+                };
+
+                // Verificar e carregar cada módulo
+                for (const [moduloId, moduloNome] of Object.entries(modulosPadrao)) {
+                    if (modulosAtivos.includes(moduloId)) {
+                        await carregarModuloEspecifico(content, pacienteId, moduloId, moduloNome);
+                    }
+                }
+
+                // Módulos customizados
+                customModulesSnapshot.forEach(doc => {
+                    const customModuloId = `custom_${doc.id}`;
+                    if (modulosAtivos.includes(customModuloId)) {
+                        const modulo = doc.data();
+                        const container = document.createElement('div');
+                        container.className = 'module-container custom-module';
+                        container.innerHTML = modulo.htmlContent
+                            .replace(/{{patientId}}/g, pacienteId)
+                            .replace(/{{patientName}}/g, pacienteDoc.data().nomeCompleto);
+                        content.appendChild(container);
+                    }
+                });
+
+                if (content.innerHTML === '') {
+                    content.innerHTML = '<p>Nenhum módulo ativo para este paciente.</p>';
+                }
+            } catch (error) {
+                console.error('Erro ao carregar módulos:', error);
+                content.innerHTML = '<p>Erro ao carregar módulos. Tente novamente.</p>';
+            }
+        }
+
+        // Função auxiliar para carregar módulos específicos
+        async function carregarModuloEspecifico(container, pacienteId, moduloId, moduloNome) {
+            const moduloDiv = document.createElement('div');
+            moduloDiv.className = 'module-container';
+            
+            switch (moduloId) {
+                case 'pa_glicemia':
+                    moduloDiv.innerHTML = `
+                        <h3>${moduloNome}</h3>
                         <input type="text" id="pa_${pacienteId}" placeholder="Pressão Arterial (ex: 120/80)">
                         <input type="number" id="glicemia_${pacienteId}" placeholder="Glicemia (mg/dL)">
                         <button onclick="salvarPA('${pacienteId}')">Adicionar Aferição</button>
                         <ul class="records-list" id="pa-list_${pacienteId}"></ul>
                     `;
-                    content.appendChild(container);
-                    carregarListaPA(pacienteId);
-                }
-
-                if (modulosAtivos.includes('anotacoes')) {
-                    const container = document.createElement('div');
-                    container.className = 'module-container';
-                    container.innerHTML = `
-                        <h3>Anotações Médicas</h3>
+                    await carregarListaPA(pacienteId);
+                    break;
+                
+                case 'anotacoes':
+                    moduloDiv.innerHTML = `
+                        <h3>${moduloNome}</h3>
                         <textarea id="anotacoes_${pacienteId}" placeholder="Digite suas anotações médicas" rows="5"></textarea>
                         <button onclick="salvarAnotacoes('${pacienteId}')">Salvar</button>
                         <ul class="records-list" id="anotacoes-list_${pacienteId}"></ul>
                     `;
-                    content.appendChild(container);
-                    carregarListaAnotacoes(pacienteId);
-                }
-
-                if (modulosAtivos.includes('medicacoes')) {
-                    const container = document.createElement('div');
-                    container.className = 'module-container';
-                    container.innerHTML = `
-                        <h3>Registro de Medicações</h3>
+                    await carregarListaAnotacoes(pacienteId);
+                    break;
+                
+                case 'medicacoes':
+                    moduloDiv.innerHTML = `
+                        <h3>${moduloNome}</h3>
                         <div id="medication-list_${pacienteId}">
                             <div class="medication-entry">
                                 <input type="text" name="nome" placeholder="Nome da medicação">
@@ -1261,15 +1392,12 @@
                         <button onclick="salvarMedicacoes('${pacienteId}')">Salvar</button>
                         <ul class="records-list" id="medicacoes-list_${pacienteId}"></ul>
                     `;
-                    content.appendChild(container);
-                    carregarListaMedicacoes(pacienteId);
-                }
-
-                if (modulosAtivos.includes('modulo4')) {
-                    const container = document.createElement('div');
-                    container.className = 'module-container';
-                    container.innerHTML = `
-                        <h3>Lembrete de Ingestão de Água</h3>
+                    await carregarListaMedicacoes(pacienteId);
+                    break;
+                
+                case 'modulo4':
+                    moduloDiv.innerHTML = `
+                        <h3>${moduloNome}</h3>
                         <div class="water-counter">
                             <button onclick="diminuirAgua('${pacienteId}')">-</button>
                             <span id="water-count_${pacienteId}">0</span> copos (200ml)
@@ -1285,43 +1413,14 @@
                         <div class="water-alert" id="water-alert_${pacienteId}">Hora de beber água!</div>
                         <ul class="records-list" id="water-list_${pacienteId}"></ul>
                     `;
-                    content.appendChild(container);
-                    carregarDadosAgua(pacienteId);
-                }
-
-                // Carregar módulos customizados ativos
-                const customModulesSnapshot = await db.collection('custom_modules')
-                    .where('isActive', '==', true)
-                    .get();
-
-                customModulesSnapshot.forEach(async doc => {
-                    const moduloId = `custom_${doc.id}`;
-                    if (modulosAtivos.includes(moduloId)) {
-                        const modulo = doc.data();
-                        const container = document.createElement('div');
-                        container.className = 'module-container custom-module';
-                        
-                        // Substituir placeholders dinâmicos
-                        let htmlContent = modulo.htmlContent;
-                        const pacienteData = pacienteDoc.data();
-                        
-                        htmlContent = htmlContent
-                            .replace(/{{patientId}}/g, pacienteId)
-                            .replace(/{{patientName}}/g, pacienteData.nomeCompleto)
-                            .replace(/{{patientPhone}}/g, pacienteData.whatsapp)
-                            .replace(/{{patientEmail}}/g, pacienteData.email || '')
-                            .replace(/{{patientSUS}}/g, pacienteData.cartaoSus || '');
-
-                        container.innerHTML = htmlContent;
-                        content.appendChild(container);
-                    }
-                });
-
-                if (modulosAtivos.length === 0) {
-                    content.innerHTML = '<p>Nenhum módulo ativo para este paciente.</p>';
-                }
-            });
+                    await carregarDadosAgua(pacienteId);
+                    break;
+            }
+            
+            container.appendChild(moduloDiv);
         }
+
+        // ... (funções de módulos específicos como carregarListaPA, salvarPA, etc. mantidas iguais) ...
 
         document.addEventListener('DOMContentLoaded', () => {
             const session = JSON.parse(localStorage.getItem('userSession'));
@@ -1380,14 +1479,17 @@
                 try {
                     if (matricula === 'admin' && senha === 'admin') {
                         currentUserId = 'admin';
-                        localStorage.setItem('userSession', JSON.stringify({ type: 'admin', id: 'admin' }));
+                        localStorage.setItem('userSession', JSON.stringify({ 
+                            type: 'admin', 
+                            id: 'admin',
+                            permissao: 'admin'
+                        }));
                         mostrarTela('painel-admin');
-                        carregarUsuarios();
                         return;
                     }
 
                     const snapshot = await db.collection('Alunos')
-                        .where('usuario', '==', matricula)
+                        .where('matricula', '==', matricula)
                         .where('senha', '==', senha)
                         .get();
 
@@ -1404,27 +1506,26 @@
                         return;
                     } else if (aluno.status === 'negado') {
                         mostrarModal('Erro', 'Cadastro não aprovado! Contate o suporte.', 'negado');
-                        mostrarTela('login-aluno');
+                        return;
+                    }
+
+                    currentUserId = alunoId;
+                    localStorage.setItem('userSession', JSON.stringify({ 
+                        type: aluno.permissao === 'admin' ? 'admin' : 'aluno',
+                        id: alunoId,
+                        permissao: aluno.permissao || 'student'
+                    }));
+
+                    if (aluno.permissao === 'admin') {
+                        mostrarTela('painel-admin');
+                        carregarUsuarios();
                     } else {
-                        currentUserId = alunoId;
-                        localStorage.setItem('userSession', JSON.stringify({ 
-                            type: aluno.permissao === 'admin' ? 'admin' : 'aluno', 
-                            id: alunoId 
-                        }));
-                        
-                        if (aluno.permissao === 'admin') {
-                            mostrarTela('painel-admin');
-                            carregarUsuarios();
-                        } else {
-                            if (aluno.mensagemAdmin) {
-                                document.getElementById('mensagem-admin').classList.remove('hidden');
-                                document.getElementById('texto-mensagem').textContent = aluno.mensagemAdmin;
-                            }
-                            mostrarTela('area-aluno');
-                        }
+                        mostrarTela('area-aluno');
+                        carregarPacientesAluno();
                     }
                 } catch (error) {
                     console.error('Erro no login:', error);
+                    mostrarModal('Erro', 'Erro ao fazer login!', 'negado');
                 }
             });
 
@@ -1476,10 +1577,14 @@
 
                     const paciente = snapshot.docs[0].data();
                     currentPacienteId = snapshot.docs[0].id;
-                    localStorage.setItem('userSession', JSON.stringify({ type: 'paciente', id: currentPacienteId }));
+                    localStorage.setItem('userSession', JSON.stringify({ 
+                        type: 'paciente', 
+                        id: currentPacienteId 
+                    }));
                     mostrarTela('tela-modulos');
                 } catch (error) {
                     console.error('Erro no login:', error);
+                    mostrarModal('Erro', 'Erro ao fazer login!', 'negado');
                 }
             });
 
