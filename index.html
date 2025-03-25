@@ -444,6 +444,31 @@
 
         .module-active { background: #00ff00; }
         .module-inactive { background: #ff0000; }
+
+        /* Perfil do Paciente */
+        .profile-container {
+            background: #34495e;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .profile-field {
+            margin-bottom: 10px;
+        }
+
+        .profile-field label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 3px;
+        }
+
+        .profile-field span {
+            display: block;
+            padding: 8px;
+            background: #2c3e50;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
@@ -460,6 +485,13 @@
         <h3>Mensagem da Administração</h3>
         <p id="broadcast-message"></p>
         <button class="close-btn" onclick="fecharBroadcastModal()">Fechar</button>
+    </div>
+
+    <!-- Modal de Perfil -->
+    <div class="modal" id="profile-modal">
+        <h3 id="profile-modal-title">Perfil do Paciente</h3>
+        <div id="profile-modal-content"></div>
+        <button class="close-btn" onclick="fecharModal()">Fechar</button>
     </div>
 
     <!-- Telas -->
@@ -643,7 +675,7 @@
             apiKey: "AIzaSyC6MCXqH2TXWzahesHtyk7JeB-gHshiWFc",
             authDomain: "carcarahealthplus-4ef7b.firebaseapp.com",
             projectId: "carcarahealthplus-4ef7b",
-            storageBucket: "carcarahealthplus-4ef7b.firebasestorage.app",
+            storageBucket: "carcarahealthplus-4ef7b.appspot.com",
             messagingSenderId: "149920030952",
             appId: "1:149920030952:web:e19ea0ba0b0f400d18295d"
         };
@@ -856,7 +888,50 @@
             }
         }
 
-        // ... (restante das funções existentes permanecem iguais) ...
+        // Função para ver perfil do paciente
+        async function verPerfilPaciente(pacienteId) {
+            try {
+                const doc = await db.collection('Pacientes').doc(pacienteId).get();
+                if (doc.exists) {
+                    const paciente = doc.data();
+                    
+                    const content = document.getElementById('profile-modal-content');
+                    content.innerHTML = `
+                        <div class="profile-container">
+                            <div class="profile-field">
+                                <label>Nome Completo:</label>
+                                <span>${paciente.nomeCompleto || 'Não informado'}</span>
+                            </div>
+                            <div class="profile-field">
+                                <label>Data de Nascimento:</label>
+                                <span>${paciente.dataNascimento || 'Não informado'}</span>
+                            </div>
+                            <div class="profile-field">
+                                <label>WhatsApp:</label>
+                                <span>${paciente.whatsapp || 'Não informado'}</span>
+                            </div>
+                            <div class="profile-field">
+                                <label>Email:</label>
+                                <span>${paciente.email || 'Não informado'}</span>
+                            </div>
+                            <div class="profile-field">
+                                <label>Cartão SUS:</label>
+                                <span>${paciente.cartaoSus || 'Não informado'}</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.getElementById('profile-modal-title').textContent = `Perfil - ${paciente.nomeCompleto}`;
+                    document.getElementById('profile-modal').style.display = 'block';
+                    document.getElementById('overlay').style.display = 'block';
+                } else {
+                    mostrarModal('Erro', 'Paciente não encontrado!', 'negado');
+                }
+            } catch (error) {
+                console.error('Erro ao carregar perfil:', error);
+                mostrarModal('Erro', 'Erro ao carregar perfil do paciente!', 'negado');
+            }
+        }
 
         async function carregarUsuarios() {
             if (usuariosListener) usuariosListener();
@@ -1112,8 +1187,6 @@
             });
         }
 
-        // ... (restante das funções existentes permanecem iguais) ...
-
         document.addEventListener('DOMContentLoaded', () => {
             const session = JSON.parse(localStorage.getItem('userSession'));
             if (session) {
@@ -1172,7 +1245,6 @@
                     if (matricula === 'admin' && senha === 'admin') {
                         currentUserId = 'admin';
                         localStorage.setItem('userSession', JSON.stringify({ type: 'admin', id: 'admin' }));
-                        mostrarModal('Sucesso', 'Login como administrador realizado com sucesso!', 'sucesso');
                         mostrarTela('painel-admin');
                         carregarUsuarios();
                         return;
@@ -1265,7 +1337,6 @@
                     const paciente = snapshot.docs[0].data();
                     currentPacienteId = snapshot.docs[0].id;
                     localStorage.setItem('userSession', JSON.stringify({ type: 'paciente', id: currentPacienteId }));
-                    mostrarModal('Sucesso', 'Login realizado com sucesso!', 'sucesso');
                     mostrarTela('tela-modulos');
                 } catch (error) {
                     console.error('Erro no login:', error);
