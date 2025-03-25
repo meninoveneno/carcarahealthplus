@@ -376,7 +376,6 @@
             display: none;
         }
 
-        /* Estilos para módulos customizados */
         .custom-module {
             border: 1px solid #444;
             padding: 15px;
@@ -442,7 +441,6 @@
         .module-active { background: #00ff00; }
         .module-inactive { background: #ff0000; }
 
-        /* Perfil do Paciente */
         .profile-container {
             background: #34495e;
             padding: 15px;
@@ -469,7 +467,6 @@
             color: white;
         }
 
-        /* Formulário de edição de usuário */
         .edit-user-form {
             display: flex;
             flex-direction: column;
@@ -499,6 +496,66 @@
         .btn-cancel {
             background: #f44336;
         }
+
+        /* Estilos para o pop-up de mensagem */
+        .mensagem-popup {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px 25px;
+            border-radius: 8px;
+            border-left: 4px solid #ffeeba;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: none;
+            max-width: 90%;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { top: -100px; opacity: 0; }
+            to { top: 20px; opacity: 1; }
+        }
+
+        .mensagem-popup h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.1rem;
+            color: #856404;
+        }
+
+        .mensagem-popup p {
+            margin: 0;
+            font-size: 0.9rem;
+        }
+
+        .mensagem-popup button {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: none;
+            border: none;
+            color: #856404;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        /* Estilos para módulos ativos */
+        .modulo-ativo {
+            background: #fff3cd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #ffeb3b;
+            color: #856404;
+        }
+
+        .modulo-ativo h4 {
+            margin-bottom: 10px;
+            color: #8B0000;
+        }
     </style>
 </head>
 <body>
@@ -524,7 +581,7 @@
         <button class="close-btn" onclick="fecharProfileModal()">Fechar</button>
     </div>
 
-    <!-- Modal de Edição de Usuário Atualizado -->
+    <!-- Modal de Edição de Usuário -->
     <div class="modal" id="edit-user-modal">
         <h3>Editar Usuário</h3>
         <form id="edit-user-form" class="edit-user-form">
@@ -570,6 +627,26 @@
                 <button type="button" class="btn-cancel" onclick="fecharModal()">Cancelar</button>
             </div>
         </form>
+    </div>
+
+    <!-- Pop-up de Mensagem -->
+    <div class="mensagem-popup" id="mensagemPopup">
+        <button onclick="fecharPopup()">&times;</button>
+        <h3>Mensagem da administração</h3>
+        <p id="mensagemConteudo"></p>
+    </div>
+
+    <!-- Tela de Envio de Mensagens -->
+    <div id="enviar-mensagem" class="container hidden">
+        <h1>Enviar Mensagem</h1>
+        <select id="destinatario-mensagem">
+            <option value="todos">Todos os Usuários</option>
+            <option value="alunos">Somente Alunos</option>
+            <option value="administradores">Somente Administradores</option>
+        </select>
+        <textarea id="texto-mensagem" rows="4" placeholder="Digite sua mensagem..."></textarea>
+        <button onclick="enviarMensagemAdmin()">Enviar Mensagem</button>
+        <button class="back-btn" onclick="mostrarTela('painel-admin')">Voltar</button>
     </div>
 
     <!-- Telas -->
@@ -668,7 +745,7 @@
         </form>
     </div>
 
-    <!-- Tela de Módulos do Paciente Atualizada -->
+    <!-- Tela de Módulos do Paciente -->
     <div id="tela-modulos" class="container hidden">
         <h1 id="paciente-nome">Módulos</h1>
         <div class="abas">
@@ -683,7 +760,7 @@
     <!-- Painel do Administrador -->
     <div id="painel-admin" class="container hidden">
         <h1>Painel do Administrador</h1>
-        <button id="broadcast-btn" class="broadcast-btn" onclick="abrirFormularioBroadcast()">📢 Enviar Mensagem</button>
+        <button class="broadcast-btn" onclick="mostrarTela('enviar-mensagem')">📢 Enviar Mensagem</button>
         <div class="btn-group">
             <button onclick="mostrarTela('gerenciar-usuarios')">Gerenciar Usuários</button>
             <button onclick="mostrarTela('gerenciar-modulos')">Gerenciar Módulos</button>
@@ -703,7 +780,6 @@
     <div id="gerenciar-modulos" class="container hidden">
         <h1>Gerenciar Módulos Customizados</h1>
         
-        <!-- Formulário de Criação/Edição -->
         <div class="card mb-4">
             <div class="card-header">
                 <h3>Adicionar/Editar Módulo</h3>
@@ -729,7 +805,6 @@
             </div>
         </div>
 
-        <!-- Lista de Módulos Existentes -->
         <div class="card">
             <div class="card-header">
                 <h3>Módulos Disponíveis</h3>
@@ -758,6 +833,7 @@
         let usuariosListener = null;
         let currentPacienteId = null;
         let modulosListener = null;
+        let mensagensListener = null;
 
         try {
             firebase.initializeApp(firebaseConfig);
@@ -798,7 +874,7 @@
             if (idTela === 'area-aluno') {
                 carregarPacientesAluno();
             } else if (idTela === 'tela-modulos' && currentPacienteId) {
-                carregarModulosPaciente(currentPacienteId);
+                iniciarListenerModulosPaciente(currentPacienteId);
             } else if (idTela === 'gerenciar-usuarios') {
                 carregarUsuarios();
             } else if (idTela === 'gerenciar-modulos') {
@@ -875,64 +951,193 @@
             mostrarTela('tela-inicial');
         }
 
-        // Função para abrir formulário de broadcast
-        async function abrirFormularioBroadcast() {
-            const content = document.createElement('div');
-            content.innerHTML = `
-                <textarea id="broadcast-text" placeholder="Digite sua mensagem para todos os alunos" rows="4" style="width: 100%; margin-bottom: 10px;"></textarea>
-                <button onclick="enviarBroadcast()" style="width: 100%;">Enviar Mensagem</button>
-            `;
-            mostrarModal('Enviar Mensagem para Todos', content);
+        // Funções para mensagens
+        function exibirMensagemPopup(mensagem) {
+            const popup = document.getElementById('mensagemPopup');
+            document.getElementById('mensagemConteudo').textContent = mensagem.texto;
+            popup.style.display = 'block';
+            setTimeout(fecharPopup, 5000);
         }
 
-        // Função para enviar broadcast
-        async function enviarBroadcast() {
-            const mensagem = document.getElementById('broadcast-text').value.trim();
-            if (!mensagem) {
+        function fecharPopup() {
+            document.getElementById('mensagemPopup').style.display = 'none';
+        }
+
+        async function enviarMensagemAdmin() {
+            const texto = document.getElementById('texto-mensagem').value;
+            const destinatario = document.getElementById('destinatario-mensagem').value;
+            
+            if (!texto) {
                 mostrarModal('Erro', 'Digite uma mensagem para enviar!', 'negado');
                 return;
             }
 
             try {
-                // Obter todos os alunos
-                const snapshot = await db.collection('Alunos').get();
-                const batch = db.batch();
+                await db.collection('mensagens').add({
+                    texto,
+                    destinatario,
+                    data: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                mostrarModal('Sucesso', 'Mensagem enviada com sucesso!', 'sucesso');
+                mostrarTela('painel-admin');
+            } catch (error) {
+                console.error('Erro ao enviar mensagem:', error);
+                mostrarModal('Erro', 'Falha ao enviar mensagem!', 'negado');
+            }
+        }
 
-                snapshot.docs.forEach(doc => {
-                    const alunoRef = db.collection('Alunos').doc(doc.id);
-                    batch.update(alunoRef, {
-                        mensagemAdmin: mensagem,
-                        mensagemData: firebase.firestore.FieldValue.serverTimestamp()
+        function iniciarListenerMensagens() {
+            if (mensagensListener) mensagensListener();
+            
+            mensagensListener = db.collection('mensagens')
+                .orderBy('data', 'desc')
+                .limit(1)
+                .onSnapshot(snapshot => {
+                    snapshot.docChanges().forEach(change => {
+                        if (change.type === 'added') {
+                            const mensagem = change.doc.data();
+                            exibirMensagemPopup(mensagem);
+                        }
                     });
                 });
-
-                await batch.commit();
-                mostrarModal('Sucesso', 'Mensagem enviada para todos os alunos com sucesso!', 'sucesso');
-                fecharModal();
-            } catch (error) {
-                console.error('Erro ao enviar broadcast:', error);
-                mostrarModal('Erro', 'Erro ao enviar mensagem para os alunos!', 'negado');
-            }
         }
 
-        // Função para verificar broadcast
-        async function verificarBroadcast() {
-            if (!currentUserId) return;
-
+        // Funções para módulos em tempo real
+        async function toggleModulo(pacienteId, modulo, button) {
             try {
-                const doc = await db.collection('Alunos').doc(currentUserId).get();
-                if (doc.exists && doc.data().mensagemAdmin) {
-                    document.getElementById('mensagem-admin').classList.remove('hidden');
-                    document.getElementById('texto-mensagem').textContent = doc.data().mensagemAdmin;
+                const docRef = db.collection('ModulosAtivos').doc(pacienteId);
+                const doc = await docRef.get();
+                let modulosAtivos = doc.exists ? doc.data().modulos || [] : [];
+
+                if (modulosAtivos.includes(modulo)) {
+                    modulosAtivos = modulosAtivos.filter(m => m !== modulo);
+                    button.classList.remove('active');
                 } else {
-                    document.getElementById('mensagem-admin').classList.add('hidden');
+                    modulosAtivos.push(modulo);
+                    button.classList.add('active');
+                }
+
+                await docRef.set({ modulos: modulosAtivos });
+                
+                if (currentPacienteId === pacienteId) {
+                    carregarModulosPaciente(pacienteId);
                 }
             } catch (error) {
-                console.error('Erro ao verificar broadcast:', error);
+                console.error('Erro ao alternar módulo:', error);
+                mostrarModal('Erro', 'Erro ao alternar módulo!', 'negado');
             }
         }
 
-        // Função para carregar módulos customizados
+        function iniciarListenerModulosPaciente(pacienteId) {
+            if (modulosListener) modulosListener();
+            
+            modulosListener = db.collection('ModulosAtivos').doc(pacienteId)
+                .onSnapshot(doc => {
+                    const modulos = doc.data()?.modulos || [];
+                    atualizarModulosUI(pacienteId, modulos);
+                });
+        }
+
+        async function atualizarModulosUI(pacienteId, modulosAtivos) {
+            const content = document.getElementById('module-content');
+            content.innerHTML = '';
+
+            try {
+                const [pacienteDoc, modulosCustom] = await Promise.all([
+                    db.collection('Pacientes').doc(pacienteId).get(),
+                    db.collection('custom_modules').where('isActive', '==', true).get()
+                ]);
+
+                const modulosPadrao = {
+                    'pa_glicemia': 'Pressão Arterial/Glicemia',
+                    'anotacoes': 'Anotações Médicas',
+                    'medicacoes': 'Gestão de Medicação',
+                    'modulo4': 'Controle de Hidratação'
+                };
+
+                modulosAtivos.forEach(moduloId => {
+                    const div = document.createElement('div');
+                    div.className = 'modulo-ativo';
+                    
+                    if (moduloId.startsWith('custom_')) {
+                        const moduloCustom = modulosCustom.docs.find(d => `custom_${d.id}` === moduloId);
+                        if (moduloCustom) {
+                            div.innerHTML = moduloCustom.data().htmlContent
+                                .replace(/{{patientId}}/g, pacienteId)
+                                .replace(/{{patientName}}/g, pacienteDoc.data().nomeCompleto);
+                        }
+                    } else {
+                        div.innerHTML = `
+                            <h4>${modulosPadrao[moduloId] || moduloId}</h4>
+                            ${gerarConteudoModulo(moduloId, pacienteId)}
+                        `;
+                    }
+                    
+                    content.appendChild(div);
+                });
+
+                if (content.innerHTML === '') {
+                    content.innerHTML = '<p>Nenhum módulo ativo no momento</p>';
+                }
+            } catch (error) {
+                console.error('Erro ao carregar módulos:', error);
+                content.innerHTML = '<p>Erro ao carregar módulos</p>';
+            }
+        }
+
+        function gerarConteudoModulo(moduloId, pacienteId) {
+            switch (moduloId) {
+                case 'pa_glicemia':
+                    return `
+                        <input type="text" id="pa_${pacienteId}" placeholder="Pressão Arterial (ex: 120/80)">
+                        <input type="number" id="glicemia_${pacienteId}" placeholder="Glicemia (mg/dL)">
+                        <button onclick="salvarPA('${pacienteId}')">Adicionar Aferição</button>
+                        <ul class="records-list" id="pa-list_${pacienteId}"></ul>
+                    `;
+                case 'anotacoes':
+                    return `
+                        <textarea id="anotacoes_${pacienteId}" placeholder="Digite suas anotações médicas" rows="5"></textarea>
+                        <button onclick="salvarAnotacoes('${pacienteId}')">Salvar</button>
+                        <ul class="records-list" id="anotacoes-list_${pacienteId}"></ul>
+                    `;
+                case 'medicacoes':
+                    return `
+                        <div id="medication-list_${pacienteId}">
+                            <div class="medication-entry">
+                                <input type="text" name="nome" placeholder="Nome da medicação">
+                                <input type="text" name="dosagem" placeholder="Dosagem">
+                                <input type="text" name="posologia" placeholder="Posologia">
+                                <input type="time" name="horario" placeholder="Horário">
+                                <button type="button" onclick="removerMedicacao(this)">-</button>
+                            </div>
+                        </div>
+                        <button onclick="adicionarMedicacao('${pacienteId}')">+ Adicionar Medicação</button>
+                        <button onclick="salvarMedicacoes('${pacienteId}')">Salvar</button>
+                        <ul class="records-list" id="medicacoes-list_${pacienteId}"></ul>
+                    `;
+                case 'modulo4':
+                    return `
+                        <div class="water-counter">
+                            <button onclick="diminuirAgua('${pacienteId}')">-</button>
+                            <span id="water-count_${pacienteId}">0</span> copos (200ml)
+                            <button onclick="adicionarAgua('${pacienteId}')">+</button>
+                        </div>
+                        <div class="water-progress">
+                            <div class="water-progress-fill" id="water-progress_${pacienteId}" style="width: 0%"></div>
+                        </div>
+                        <input type="number" id="water-goal_${pacienteId}" placeholder="Meta diária (copos)" min="1">
+                        <button onclick="definirMetaAgua('${pacienteId}')">Definir Meta</button>
+                        <div class="timer-display" id="water-timer_${pacienteId}">Próximo lembrete: --:--</div>
+                        <button onclick="iniciarTimerAgua('${pacienteId}')">Iniciar Lembrete (2h)</button>
+                        <div class="water-alert" id="water-alert_${pacienteId}">Hora de beber água!</div>
+                        <ul class="records-list" id="water-list_${pacienteId}"></ul>
+                    `;
+                default:
+                    return '<p>Módulo não reconhecido</p>';
+            }
+        }
+
+        // Funções para módulos customizados
         async function carregarModulosCustomizados() {
             const lista = document.getElementById('lista-modulos');
             lista.innerHTML = '';
@@ -959,14 +1164,12 @@
             });
         }
 
-        // Função para confirmar apagar módulo
         function confirmarApagarModulo(id) {
             if (confirm('Tem certeza que deseja apagar este módulo permanentemente?')) {
                 apagarModuloCustom(id);
             }
         }
 
-        // Função para apagar módulo
         async function apagarModuloCustom(id = null) {
             const moduloId = id || document.getElementById('moduloEditId').value;
             if (!moduloId) return;
@@ -982,14 +1185,12 @@
             }
         }
 
-        // Função para limpar formulário de módulo
         function limparFormularioModulo() {
             document.getElementById('formModuloCustom').reset();
             document.getElementById('moduloEditId').value = '';
             document.getElementById('btn-apagar-modulo').style.display = 'none';
         }
 
-        // Função para salvar/editar módulo
         async function salvarModuloCustom(e) {
             e.preventDefault();
             const id = document.getElementById('moduloEditId').value;
@@ -1019,7 +1220,6 @@
             }
         }
 
-        // Função para editar módulo
         async function editarModuloCustom(id) {
             const doc = await db.collection('custom_modules').doc(id).get();
             if (doc.exists) {
@@ -1029,12 +1229,10 @@
                 document.getElementById('moduloHTML').value = modulo.htmlContent;
                 document.getElementById('btn-apagar-modulo').style.display = 'inline-block';
                 
-                // Scroll para o formulário
                 document.getElementById('formModuloCustom').scrollIntoView({ behavior: 'smooth' });
             }
         }
 
-        // Função para ativar/desativar módulo
         async function toggleModuloCustom(id, status) {
             try {
                 await db.collection('custom_modules').doc(id).update({
@@ -1049,7 +1247,7 @@
             }
         }
 
-        // Função para ver perfil do paciente
+        // Funções para perfil do paciente
         async function verPerfilPaciente(pacienteId) {
             try {
                 const doc = await db.collection('Pacientes').doc(pacienteId).get();
@@ -1094,7 +1292,7 @@
             }
         }
 
-        // Função para editar usuário
+        // Funções para edição de usuário
         async function editarUsuario(usuarioId) {
             try {
                 const doc = await db.collection('Alunos').doc(usuarioId).get();
@@ -1121,7 +1319,6 @@
             }
         }
 
-        // Evento de submit do formulário de edição de usuário
         document.getElementById('edit-user-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             
@@ -1210,7 +1407,6 @@
 
                 filteredPacientes.sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
 
-                // Carregar módulos customizados ativos
                 const customModulesSnapshot = await db.collection('custom_modules')
                     .where('isActive', '==', true)
                     .get();
@@ -1222,7 +1418,6 @@
                     const div = document.createElement('div');
                     div.className = 'user-item';
                     
-                    // Botões para módulos padrão
                     let buttonsHTML = `
                         <button class="module-btn ${modulosAtivos.includes('pa_glicemia') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'pa_glicemia', this)">P.A./Glicemia</button>
                         <button class="module-btn ${modulosAtivos.includes('anotacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'anotacoes', this)">Anotações</button>
@@ -1230,7 +1425,6 @@
                         <button class="module-btn ${modulosAtivos.includes('modulo4') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'modulo4', this)">Lembrete Água</button>
                     `;
 
-                    // Adicionar botões para módulos customizados
                     customModulesSnapshot.forEach(doc => {
                         const moduloId = `custom_${doc.id}`;
                         buttonsHTML += `
@@ -1241,7 +1435,6 @@
                         `;
                     });
 
-                    // Adicionar botão de perfil
                     buttonsHTML += `<button class="profile-btn" onclick="verPerfilPaciente('${paciente.id}')">👤</button>`;
 
                     div.innerHTML = `
@@ -1260,168 +1453,23 @@
             search.addEventListener('input', carregarPacientesAluno);
         }
 
-        async function toggleModulo(pacienteId, modulo, button) {
-            try {
-                const docRef = db.collection('ModulosAtivos').doc(pacienteId);
-                const doc = await docRef.get();
-                let modulosAtivos = doc.exists ? doc.data().modulos || [] : [];
+        async function verificarBroadcast() {
+            if (!currentUserId) return;
 
-                if (modulosAtivos.includes(modulo)) {
-                    modulosAtivos = modulosAtivos.filter(m => m !== modulo);
-                    button.classList.remove('active');
+            try {
+                const doc = await db.collection('Alunos').doc(currentUserId).get();
+                if (doc.exists && doc.data().mensagemAdmin) {
+                    document.getElementById('mensagem-admin').classList.remove('hidden');
+                    document.getElementById('texto-mensagem').textContent = doc.data().mensagemAdmin;
                 } else {
-                    modulosAtivos.push(modulo);
-                    button.classList.add('active');
-                }
-
-                await docRef.set({ modulos: modulosAtivos }, { merge: true });
-                
-                // Atualizar a tela de módulos se estiver aberta para este paciente
-                if (currentPacienteId === pacienteId) {
-                    carregarModulosPaciente(pacienteId);
+                    document.getElementById('mensagem-admin').classList.add('hidden');
                 }
             } catch (error) {
-                console.error('Erro ao alternar módulo:', error);
-                mostrarModal('Erro', 'Erro ao alternar módulo!', 'negado');
+                console.error('Erro ao verificar broadcast:', error);
             }
         }
 
-        async function carregarModulosPaciente(pacienteId) {
-            const pacienteNome = document.getElementById('paciente-nome');
-            const content = document.getElementById('module-content');
-            content.innerHTML = 'Carregando módulos...';
-
-            try {
-                const pacienteDoc = await db.collection('Pacientes').doc(pacienteId).get();
-                if (!pacienteDoc.exists) {
-                    mostrarModal('Erro', 'Paciente não encontrado!', 'negado');
-                    return;
-                }
-
-                pacienteNome.textContent = `Módulos - ${pacienteDoc.data().nomeCompleto}`;
-
-                // Carregar módulos ativos
-                const modulosDoc = await db.collection('ModulosAtivos').doc(pacienteId).get();
-                const modulosAtivos = modulosDoc.exists ? modulosDoc.data().modulos || [] : [];
-
-                // Carregar todos os módulos disponíveis
-                const customModulesSnapshot = await db.collection('custom_modules')
-                    .where('isActive', '==', true)
-                    .get();
-
-                content.innerHTML = '';
-
-                // Módulos padrão
-                const modulosPadrao = {
-                    'pa_glicemia': 'P.A. e Glicemia',
-                    'anotacoes': 'Anotações Médicas',
-                    'medicacoes': 'Medicações',
-                    'modulo4': 'Lembrete de Água'
-                };
-
-                // Verificar e carregar cada módulo
-                for (const [moduloId, moduloNome] of Object.entries(modulosPadrao)) {
-                    if (modulosAtivos.includes(moduloId)) {
-                        await carregarModuloEspecifico(content, pacienteId, moduloId, moduloNome);
-                    }
-                }
-
-                // Módulos customizados
-                customModulesSnapshot.forEach(doc => {
-                    const customModuloId = `custom_${doc.id}`;
-                    if (modulosAtivos.includes(customModuloId)) {
-                        const modulo = doc.data();
-                        const container = document.createElement('div');
-                        container.className = 'module-container custom-module';
-                        container.innerHTML = modulo.htmlContent
-                            .replace(/{{patientId}}/g, pacienteId)
-                            .replace(/{{patientName}}/g, pacienteDoc.data().nomeCompleto);
-                        content.appendChild(container);
-                    }
-                });
-
-                if (content.innerHTML === '') {
-                    content.innerHTML = '<p>Nenhum módulo ativo para este paciente.</p>';
-                }
-            } catch (error) {
-                console.error('Erro ao carregar módulos:', error);
-                content.innerHTML = '<p>Erro ao carregar módulos. Tente novamente.</p>';
-            }
-        }
-
-        // Função auxiliar para carregar módulos específicos
-        async function carregarModuloEspecifico(container, pacienteId, moduloId, moduloNome) {
-            const moduloDiv = document.createElement('div');
-            moduloDiv.className = 'module-container';
-            
-            switch (moduloId) {
-                case 'pa_glicemia':
-                    moduloDiv.innerHTML = `
-                        <h3>${moduloNome}</h3>
-                        <input type="text" id="pa_${pacienteId}" placeholder="Pressão Arterial (ex: 120/80)">
-                        <input type="number" id="glicemia_${pacienteId}" placeholder="Glicemia (mg/dL)">
-                        <button onclick="salvarPA('${pacienteId}')">Adicionar Aferição</button>
-                        <ul class="records-list" id="pa-list_${pacienteId}"></ul>
-                    `;
-                    await carregarListaPA(pacienteId);
-                    break;
-                
-                case 'anotacoes':
-                    moduloDiv.innerHTML = `
-                        <h3>${moduloNome}</h3>
-                        <textarea id="anotacoes_${pacienteId}" placeholder="Digite suas anotações médicas" rows="5"></textarea>
-                        <button onclick="salvarAnotacoes('${pacienteId}')">Salvar</button>
-                        <ul class="records-list" id="anotacoes-list_${pacienteId}"></ul>
-                    `;
-                    await carregarListaAnotacoes(pacienteId);
-                    break;
-                
-                case 'medicacoes':
-                    moduloDiv.innerHTML = `
-                        <h3>${moduloNome}</h3>
-                        <div id="medication-list_${pacienteId}">
-                            <div class="medication-entry">
-                                <input type="text" name="nome" placeholder="Nome da medicação">
-                                <input type="text" name="dosagem" placeholder="Dosagem">
-                                <input type="text" name="posologia" placeholder="Posologia">
-                                <input type="time" name="horario" placeholder="Horário">
-                                <button type="button" onclick="removerMedicacao(this)">-</button>
-                            </div>
-                        </div>
-                        <button onclick="adicionarMedicacao('${pacienteId}')">+ Adicionar Medicação</button>
-                        <button onclick="salvarMedicacoes('${pacienteId}')">Salvar</button>
-                        <ul class="records-list" id="medicacoes-list_${pacienteId}"></ul>
-                    `;
-                    await carregarListaMedicacoes(pacienteId);
-                    break;
-                
-                case 'modulo4':
-                    moduloDiv.innerHTML = `
-                        <h3>${moduloNome}</h3>
-                        <div class="water-counter">
-                            <button onclick="diminuirAgua('${pacienteId}')">-</button>
-                            <span id="water-count_${pacienteId}">0</span> copos (200ml)
-                            <button onclick="adicionarAgua('${pacienteId}')">+</button>
-                        </div>
-                        <div class="water-progress">
-                            <div class="water-progress-fill" id="water-progress_${pacienteId}" style="width: 0%"></div>
-                        </div>
-                        <input type="number" id="water-goal_${pacienteId}" placeholder="Meta diária (copos)" min="1">
-                        <button onclick="definirMetaAgua('${pacienteId}')">Definir Meta</button>
-                        <div class="timer-display" id="water-timer_${pacienteId}">Próximo lembrete: --:--</div>
-                        <button onclick="iniciarTimerAgua('${pacienteId}')">Iniciar Lembrete (2h)</button>
-                        <div class="water-alert" id="water-alert_${pacienteId}">Hora de beber água!</div>
-                        <ul class="records-list" id="water-list_${pacienteId}"></ul>
-                    `;
-                    await carregarDadosAgua(pacienteId);
-                    break;
-            }
-            
-            container.appendChild(moduloDiv);
-        }
-
-        // ... (funções de módulos específicos como carregarListaPA, salvarPA, etc. mantidas iguais) ...
-
+        // Evento DOMContentLoaded
         document.addEventListener('DOMContentLoaded', () => {
             const session = JSON.parse(localStorage.getItem('userSession'));
             if (session) {
@@ -1589,7 +1637,7 @@
             });
 
             document.getElementById('overlay').addEventListener('click', fecharModal);
-            verificarBroadcast();
+            iniciarListenerMensagens();
         });
     </script>
 </body>
