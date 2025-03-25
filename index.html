@@ -5,12 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#8B0000"> <!-- Cor da barra de status -->
     <meta name="apple-mobile-web-app-capable" content="yes"> <!-- Suporte iOS tela cheia -->
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"> <!-- Barra de status translúcida -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes"> <!-- Suporte Android tela cheia -->
     <title>Carcará Health +</title>
     <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTGGg1qa3Y85VlEFRq4czW0VinqCyh8X6vpeg&s"> <!-- Ícone para iOS -->
-    <link rel="icon" href="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTGGg1qa3Y85VlEFRq4czW0VinqCyh8X6vpeg&s"> <!-- Ícone padrão -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     
     <!-- Firebase SDK -->
@@ -24,12 +22,6 @@
             padding: 0;
             box-sizing: border-box;
             font-family: 'Poppins', sans-serif;
-        }
-
-        html, body {
-            height: 100%;
-            width: 100%;
-            overflow: hidden; /* Evita rolagem indesejada */
         }
 
         body {
@@ -575,19 +567,6 @@
             });
         }
 
-        // Função para ativar tela cheia no iOS
-        function entrarEmTelaCheia() {
-            if (document.documentElement.requestFullscreen) {
-                document.documentElement.requestFullscreen().catch(err => {
-                    console.log(`Erro ao tentar entrar em tela cheia: ${err.message}`);
-                });
-            }
-        }
-
-        // Chama tela cheia ao carregar e ao interagir
-        window.addEventListener('load', entrarEmTelaCheia);
-        document.addEventListener('click', entrarEmTelaCheia);
-
         function formatarDataBrasileira(data) {
             const partes = data.split('-');
             return partes[2] + partes[1] + partes[0];
@@ -607,7 +586,6 @@
                 carregarModulosPaciente(currentPacienteId);
             }
             verificarBroadcast();
-            entrarEmTelaCheia(); // Garante tela cheia ao mudar de tela
         }
 
         function mostrarModal(titulo, conteudo, status) {
@@ -1211,7 +1189,7 @@
             atualizarProgressoAgua(pacienteId, count, goal);
         }
 
-        async function diminuir solace(pacienteId) {
+        async function diminuirAgua(pacienteId) {
             const today = new Date().toISOString().split('T')[0];
             const docRef = db.collection('IngestaoAgua').doc(`${pacienteId}_${today}`);
             const doc = await docRef.get();
@@ -1800,3 +1778,22 @@
 
                     if (snapshot.empty) {
                         mostrarModal('Erro', 'Credenciais inválidas!', 'negado');
+                        return;
+                    }
+
+                    const paciente = snapshot.docs[0].data();
+                    currentPacienteId = snapshot.docs[0].id;
+                    localStorage.setItem('userSession', JSON.stringify({ type: 'paciente', id: currentPacienteId }));
+                    mostrarModal('Sucesso', 'Login realizado com sucesso!', 'sucesso');
+                    mostrarTela('tela-modulos');
+                } catch (error) {
+                    console.error('Erro no login:', error);
+                }
+            });
+
+            document.getElementById('overlay').addEventListener('click', fecharModal);
+            verificarBroadcast();
+        });
+    </script>
+</body>
+</html>
