@@ -528,6 +528,10 @@
                 <input type="text" id="edit-user-whatsapp" required>
             </div>
             <div>
+                <label class="form-label">Senha</label>
+                <input type="password" id="edit-user-senha" required>
+            </div>
+            <div>
                 <label class="form-label">Status</label>
                 <select id="edit-user-status" required>
                     <option value="aprovado">Aprovado</option>
@@ -536,10 +540,10 @@
                 </select>
             </div>
             <div>
-                <label class="form-label">Admin</label>
-                <select id="edit-user-admin" required>
-                    <option value="no">Não</option>
-                    <option value="yes">Sim</option>
+                <label class="form-label">Permissão</label>
+                <select id="edit-user-permissao" required>
+                    <option value="student">Aluno</option>
+                    <option value="admin">Administrador</option>
                 </select>
             </div>
             <button type="submit">Salvar</button>
@@ -648,16 +652,9 @@
         <h1 id="paciente-nome">Módulos</h1>
         <div class="abas">
             <button onclick="mostrarAbaPaciente('modulos');" class="aba-btn active">Módulos</button>
-            <button onclick="mostrarAbaPaciente('historico'); carregarHistoricoPaciente(currentPacienteId);" class="aba-btn">Histórico</button>
         </div>
         <div id="aba-modulos" class="aba visible">
             <div id="module-content"></div>
-        </div>
-        <div id="aba-historico" class="aba">
-            <div id="historico-pa" class="module-container"></div>
-            <div id="historico-anotacoes" class="module-container"></div>
-            <div id="historico-medicacoes" class="module-container"></div>
-            <div id="historico-agua" class="module-container"></div>
         </div>
         <button class="back-btn" onclick="sairAreaPaciente()">Sair</button>
     </div>
@@ -706,7 +703,7 @@
                     
                     <button type="submit" class="btn btn-primary">Salvar Módulo</button>
                     <button type="button" class="btn btn-secondary" onclick="limparFormularioModulo()">Cancelar</button>
-                    <button type="button" class="btn btn-danger" onclick="apagarModuloCustom()" id="btn-apagar-modulo" style="display: none;">Apagar Módulo</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmarApagarModulo('${doc.id}')" id="btn-apagar-modulo" style="display: none;">Apagar Módulo</button>
                 </form>
             </div>
         </div>
@@ -1030,8 +1027,9 @@
                     document.getElementById('edit-user-matricula').value = usuario.matricula || '';
                     document.getElementById('edit-user-email').value = usuario.email || '';
                     document.getElementById('edit-user-whatsapp').value = usuario.whatsapp || '';
+                    document.getElementById('edit-user-senha').value = usuario.senha || '';
                     document.getElementById('edit-user-status').value = usuario.status || 'pendente';
-                    document.getElementById('edit-user-admin').value = usuario.admin || 'no';
+                    document.getElementById('edit-user-permissao').value = usuario.permissao || 'student';
                     
                     document.getElementById('edit-user-modal').style.display = 'block';
                     document.getElementById('overlay').style.display = 'block';
@@ -1054,8 +1052,9 @@
                 matricula: document.getElementById('edit-user-matricula').value,
                 email: document.getElementById('edit-user-email').value,
                 whatsapp: document.getElementById('edit-user-whatsapp').value,
+                senha: document.getElementById('edit-user-senha').value,
                 status: document.getElementById('edit-user-status').value,
-                admin: document.getElementById('edit-user-admin').value,
+                permissao: document.getElementById('edit-user-permissao').value,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
@@ -1085,8 +1084,8 @@
                 );
 
                 filteredUsuarios.sort((a, b) => {
-                    const aIsAdmin = a.admin === 'yes';
-                    const bIsAdmin = b.admin === 'yes';
+                    const aIsAdmin = a.permissao === 'admin';
+                    const bIsAdmin = b.permissao === 'admin';
                     if (aIsAdmin !== bIsAdmin) return bIsAdmin - aIsAdmin;
                     return a.nomeCompleto.localeCompare(b.nomeCompleto);
                 });
@@ -1094,7 +1093,7 @@
                 filteredUsuarios.forEach(usuario => {
                     const div = document.createElement('div');
                     div.className = 'user-item';
-                    const isAdmin = usuario.admin === 'yes';
+                    const isAdmin = usuario.permissao === 'admin';
                     let statusClass;
                     switch (usuario.status) {
                         case 'aprovado': statusClass = 'approved'; break;
@@ -1361,7 +1360,7 @@
                         usuario: values[1],
                         senha: senha,
                         status: 'pendente',
-                        admin: 'no',
+                        permissao: 'student',
                         timestamp: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     
@@ -1408,8 +1407,12 @@
                         mostrarTela('login-aluno');
                     } else {
                         currentUserId = alunoId;
-                        localStorage.setItem('userSession', JSON.stringify({ type: aluno.admin === 'yes' ? 'admin' : 'aluno', id: alunoId }));
-                        if (aluno.admin === 'yes') {
+                        localStorage.setItem('userSession', JSON.stringify({ 
+                            type: aluno.permissao === 'admin' ? 'admin' : 'aluno', 
+                            id: alunoId 
+                        }));
+                        
+                        if (aluno.permissao === 'admin') {
                             mostrarTela('painel-admin');
                             carregarUsuarios();
                         } else {
