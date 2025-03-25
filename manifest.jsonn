@@ -1,19 +1,15 @@
 {
     "name": "Carcará Health +",
-    "short_name": "Carcará Health",
-    "start_url": "/index.html",
+    "short_name": "Carcará",
+    "start_url": "/",
     "display": "standalone",
     "background_color": "#8B0000",
     "theme_color": "#8B0000",
-    "description": "Aplicativo de saúde para alunos e pacientes do Carcará Health +",
     "icons": [
         {
-            "src": "https://scontent.frec3-1.fna.fbcdn.net/v/t39.30808-6/406602524_678803654462441_807025838529865500_n.jpg",
+            "src": "https://thumbs.dreamstime.com/b/perfil-liso-do-estilo-da-ilustra%C3%A7%C3%A3o-vetor-%C3%A1guia-caracara-116520340.jpg",
             "sizes": "512x512",
-            "type": "image/jpeg",
-            "purpose": "any maskable"
+            "type": "image/jpg"
         }
-    ],
-    "lang": "pt-BR",
-    "scope": "/"
+    ]
 }
