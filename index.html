@@ -373,36 +373,40 @@
             display: none;
         }
 
-        .admin-actions {
+        /* Novos estilos para as funcionalidades adicionais */
+        .checkbox-mass {
+            margin-right: 5px;
+        }
+        .mass-actions {
+            margin-top: 10px;
             display: flex;
             gap: 10px;
-            margin-bottom: 1rem;
         }
-
-        .stats-container {
+        .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
         }
-
-        .stat-box {
+        .stat-card {
             background: #34495e;
-            padding: 10px;
+            padding: 15px;
             border-radius: 5px;
             text-align: center;
         }
-
-        .alerts-list {
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
         .alert-item {
             background: #f44336;
             padding: 10px;
             border-radius: 5px;
             margin-bottom: 10px;
-            color: white;
+            display: flex;
+            justify-content: space-between;
+        }
+        .message-item {
+            background: #2c3e50;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -543,55 +547,63 @@
         <button id="broadcast-btn" class="broadcast-btn" onclick="abrirFormularioBroadcast()">📢 Enviar Mensagem</button>
         <div class="abas">
             <button onclick="mostrarAba('usuarios'); carregarUsuarios();">Usuários</button>
-            <button onclick="mostrarAba('estatisticas'); carregarEstatisticas();">Estatísticas</button>
-            <button onclick="mostrarAba('modulos'); carregarGestaoModulos();">Gestão de Módulos</button>
-            <button onclick="mostrarAba('alertas'); carregarAlertas();">Alertas</button>
+            <button onclick="mostrarAba('pacientes'); carregarPacientes();">Pacientes</button>
+            <button onclick="mostrarAba('relatorios'); carregarRelatorios();">Relatórios</button>
             <button onclick="mostrarAba('logs'); carregarLogs();">Logs</button>
+            <button onclick="mostrarAba('modulos'); carregarGerenciamentoModulos();">Módulos</button>
+            <button onclick="mostrarAba('notificacoes'); carregarNotificacoes();">Notificações</button>
             <button onclick="mostrarAba('configuracoes'); carregarConfiguracoes();">Configurações</button>
+            <button onclick="mostrarAba('saude'); carregarMonitoramentoSaude();">Monitoramento Saúde</button>
             <button onclick="mostrarAba('suporte'); carregarSuporte();">Suporte</button>
         </div>
 
         <!-- Aba Usuários -->
         <div id="aba-usuarios" class="aba visible">
             <h2>Usuários</h2>
-            <div class="admin-actions">
-                <select id="filtro-status" onchange="carregarUsuarios()">
-                    <option value="">Todos</option>
-                    <option value="aprovado">Aprovados</option>
-                    <option value="pendente">Pendentes</option>
-                    <option value="negado">Negados</option>
-                </select>
-                <button onclick="exportarUsuarios()">Exportar CSV</button>
-                <button onclick="abrirAprovacaoEmMassa()">Aprovar/Negar em Massa</button>
-            </div>
             <input type="text" class="search-bar" id="search-usuarios" placeholder="Pesquisar usuários...">
             <div id="lista-usuarios"></div>
+            <div class="mass-actions">
+                <button onclick="aprovarUsuariosSelecionados()">Aprovar Selecionados</button>
+                <button onclick="negarUsuariosSelecionados()">Negar Selecionados</button>
+                <button onclick="excluirUsuariosSelecionados()">Excluir Selecionados</button>
+            </div>
         </div>
 
-        <!-- Aba Estatísticas -->
-        <div id="aba-estatisticas" class="aba">
-            <h2>Estatísticas</h2>
-            <div class="stats-container" id="estatisticas-content"></div>
-            <button onclick="gerarRelatorioSaude()">Gerar Relatório de Saúde</button>
+        <!-- Aba Pacientes -->
+        <div id="aba-pacientes" class="aba">
+            <h2>Pacientes</h2>
+            <input type="text" class="search-bar" id="search-pacientes-admin" placeholder="Pesquisar pacientes...">
+            <div id="lista-pacientes-admin"></div>
+            <button onclick="exportarPacientesCSV()">Exportar como CSV</button>
         </div>
 
-        <!-- Aba Gestão de Módulos -->
-        <div id="aba-modulos" class="aba">
-            <h2>Gestão de Módulos</h2>
-            <div id="modulos-content"></div>
-            <button onclick="abrirGestaoModulosMassa()">Ativar/Desativar em Massa</button>
-        </div>
-
-        <!-- Aba Alertas -->
-        <div id="aba-alertas" class="aba">
-            <h2>Alertas</h2>
-            <div class="alerts-list" id="alertas-content"></div>
+        <!-- Aba Relatórios -->
+        <div id="aba-relatorios" class="aba">
+            <h2>Relatórios</h2>
+            <div class="stats-grid" id="stats-content"></div>
         </div>
 
         <!-- Aba Logs -->
         <div id="aba-logs" class="aba">
-            <h2>Logs do Sistema</h2>
-            <div id="logs-content" class="records-list"></div>
+            <h2>Logs de Atividades</h2>
+            <input type="text" class="search-bar" id="search-logs" placeholder="Pesquisar logs...">
+            <div id="lista-logs"></div>
+        </div>
+
+        <!-- Aba Gerenciamento de Módulos -->
+        <div id="aba-modulos" class="aba">
+            <h2>Gerenciamento de Módulos</h2>
+            <div id="modulos-content">
+                <button onclick="ativarModuloMassa()">Ativar Módulo em Massa</button>
+                <button onclick="configurarModulos()">Configurar Módulos</button>
+            </div>
+        </div>
+
+        <!-- Aba Notificações -->
+        <div id="aba-notificacoes" class="aba">
+            <h2>Notificações</h2>
+            <button onclick="configurarNotificacaoAutomatica()">Configurar Notificação Automática</button>
+            <div id="historico-notificacoes"></div>
         </div>
 
         <!-- Aba Configurações -->
@@ -600,10 +612,18 @@
             <div id="configuracoes-content"></div>
         </div>
 
+        <!-- Aba Monitoramento de Saúde -->
+        <div id="aba-saude" class="aba">
+            <h2>Monitoramento de Saúde</h2>
+            <div id="alertas-saude"></div>
+            <button onclick="verHistoricoConsolidado()">Ver Histórico Consolidado</button>
+        </div>
+
         <!-- Aba Suporte -->
         <div id="aba-suporte" class="aba">
-            <h2>Suporte e Feedback</h2>
-            <div id="suporte-content"></div>
+            <h2>Suporte</h2>
+            <div id="mensagens-suporte"></div>
+            <button onclick="editarFAQs()">Editar FAQs</button>
         </div>
 
         <button class="back-btn" onclick="sairAreaAdmin()">Voltar</button>
@@ -721,15 +741,10 @@
             if (usuariosListener) usuariosListener();
             const lista = document.getElementById('lista-usuarios');
             const search = document.getElementById('search-usuarios');
-            const filtroStatus = document.getElementById('filtro-status').value;
 
             usuariosListener = db.collection('Alunos').onSnapshot(snapshot => {
                 lista.innerHTML = '';
-                let usuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-                if (filtroStatus) {
-                    usuarios = usuarios.filter(u => u.status === filtroStatus);
-                }
+                const usuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
                 const filteredUsuarios = usuarios.filter(u => 
                     u.nomeCompleto.toLowerCase().includes(search.value.toLowerCase()) ||
@@ -755,6 +770,7 @@
                     }
                     div.innerHTML = `
                         <div>
+                            <input type="checkbox" class="checkbox-mass" data-id="${usuario.id}">
                             <span class="status-indicator ${statusClass}"></span>
                             <strong>${usuario.nomeCompleto}</strong> (${usuario.usuario})
                             ${isAdmin ? '<span class="badge-admin">Admin</span>' : ''}
@@ -767,303 +783,6 @@
 
             search.removeEventListener('input', carregarUsuarios);
             search.addEventListener('input', carregarUsuarios);
-        }
-
-        async function exportarUsuarios() {
-            const snapshot = await db.collection('Alunos').get();
-            const usuarios = snapshot.docs.map(doc => doc.data());
-            const csv = [
-                'Nome Completo,Matricula,Email,Data Nascimento,WhatsApp,Usuario,Status,Admin',
-                ...usuarios.map(u => `${u.nomeCompleto},${u.matricula},${u.email},${u.dataNascimento},${u.whatsapp},${u.usuario},${u.status},${u.admin}`)
-            ].join('\n');
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'usuarios.csv';
-            a.click();
-            registrarLog('Exportou lista de usuários');
-        }
-
-        async function abrirAprovacaoEmMassa() {
-            const snapshot = await db.collection('Alunos').where('status', '==', 'pendente').get();
-            const usuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-            const form = document.createElement('form');
-            form.innerHTML = `
-                <select name="acao" required>
-                    <option value="">Selecione uma ação</option>
-                    <option value="aprovado">Aprovar</option>
-                    <option value="negado">Negar</option>
-                </select>
-                <textarea name="motivo" placeholder="Motivo (obrigatório se negar)" ${usuarios.length === 0 ? 'disabled' : ''}></textarea>
-                <div id="usuarios-pendentes"></div>
-                <button type="submit">Aplicar</button>
-            `;
-
-            const pendentesDiv = form.querySelector('#usuarios-pendentes');
-            if (usuarios.length === 0) {
-                pendentesDiv.innerHTML = '<p>Nenhum usuário pendente.</p>';
-            } else {
-                usuarios.forEach(u => {
-                    const div = document.createElement('div');
-                    div.innerHTML = `<input type="checkbox" name="usuarios" value="${u.id}" checked> ${u.nomeCompleto} (${u.matricula})`;
-                    pendentesDiv.appendChild(div);
-                });
-            }
-
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const acao = form.acao.value;
-                const motivo = form.motivo.value;
-                const selecionados = Array.from(form.querySelectorAll('input[name="usuarios"]:checked')).map(input => input.value);
-
-                if (acao === 'negado' && !motivo) {
-                    alert('O motivo é obrigatório ao negar usuários.');
-                    return;
-                }
-
-                try {
-                    for (const id of selecionados) {
-                        await db.collection('Alunos').doc(id).update({
-                            status: acao,
-                            motivoNegacao: acao === 'negado' ? motivo : ''
-                        });
-                        registrarLog(`Usuário ${id} ${acao}`);
-                    }
-                    fecharModal();
-                    carregarUsuarios();
-                } catch (error) {
-                    console.error('Erro ao aplicar ação em massa:', error);
-                    alert('Erro ao processar a ação.');
-                }
-            });
-
-            mostrarModal('Aprovação/Negação em Massa', form, 'sucesso');
-        }
-
-        async function carregarEstatisticas() {
-            const content = document.getElementById('estatisticas-content');
-            content.innerHTML = '';
-
-            const alunos = await db.collection('Alunos').get();
-            const pacientes = await db.collection('Pacientes').get();
-            const paRegistros = await db.collection('RegistrosPAeGlicemia').get();
-            const anotacoes = await db.collection('AnotacoesMedicas').get();
-            const medicacoes = await db.collection('Medicacoes').get();
-            const agua = await db.collection('HistoricoAgua').get();
-
-            content.innerHTML = `
-                <div class="stat-box"><strong>Total de Alunos:</strong> ${alunos.size}</div>
-                <div class="stat-box"><strong>Total de Pacientes:</strong> ${pacientes.size}</div>
-                <div class="stat-box"><strong>Registros P.A./Glicemia:</strong> ${paRegistros.size}</div>
-                <div class="stat-box"><strong>Anotações:</strong> ${anotacoes.size}</div>
-                <div class="stat-box"><strong>Medicações:</strong> ${medicacoes.size}</div>
-                <div class="stat-box"><strong>Registros de Água:</strong> ${agua.size}</div>
-            `;
-        }
-
-        async function gerarRelatorioSaude() {
-            const snapshot = await db.collection('RegistrosPAeGlicemia').get();
-            const registros = snapshot.docs.map(doc => doc.data());
-            const pacientesSnapshot = await db.collection('Pacientes').get();
-            const pacientes = Object.fromEntries(pacientesSnapshot.docs.map(doc => [doc.id, doc.data().nomeCompleto]));
-
-            const csv = [
-                'Paciente,Data,PA,Glicemia',
-                ...registros.map(r => `${pacientes[r.pacienteId] || r.pacienteId},${formatarDataTopico(r.data)},${r.pa},${r.glicemia}`)
-            ].join('\n');
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'relatorio_saude.csv';
-            a.click();
-            registrarLog('Gerou relatório de saúde');
-        }
-
-        async function carregarGestaoModulos() {
-            const content = document.getElementById('modulos-content');
-            content.innerHTML = '';
-
-            const modulos = ['pa_glicemia', 'anotacoes', 'medicacoes', 'modulo4'];
-            const modulosNomes = {
-                'pa_glicemia': 'P.A./Glicemia',
-                'anotacoes': 'Anotações',
-                'medicacoes': 'Medicações',
-                'modulo4': 'Lembrete Água'
-            };
-
-            const snapshot = await db.collection('ModulosAtivos').get();
-            const modulosAtivos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-            modulos.forEach(modulo => {
-                const count = modulosAtivos.filter(m => m.modulos && m.modulos.includes(modulo)).length;
-                const div = document.createElement('div');
-                div.className = 'user-item';
-                div.innerHTML = `
-                    <span>${modulosNomes[modulo]}</span>
-                    <span>Ativo em ${count} pacientes</span>
-                `;
-                content.appendChild(div);
-            });
-        }
-
-        async function abrirGestaoModulosMassa() {
-            const form = document.createElement('form');
-            form.innerHTML = `
-                <select name="modulo" required>
-                    <option value="">Selecione um módulo</option>
-                    <option value="pa_glicemia">P.A./Glicemia</option>
-                    <option value="anotacoes">Anotações</option>
-                    <option value="medicacoes">Medicações</option>
-                    <option value="modulo4">Lembrete Água</option>
-                </select>
-                <select name="acao" required>
-                    <option value="">Selecione uma ação</option>
-                    <option value="ativar">Ativar</option>
-                    <option value="desativar">Desativar</option>
-                </select>
-                <button type="submit">Aplicar</button>
-            `;
-
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const modulo = form.modulo.value;
-                const acao = form.acao.value;
-
-                try {
-                    const snapshot = await db.collection('Pacientes').get();
-                    const batch = db.batch();
-                    snapshot.docs.forEach(doc => {
-                        const docRef = db.collection('ModulosAtivos').doc(doc.id);
-                        const modulosAtivos = (docRef.get().then(d => d.exists ? d.data().modulos || [] : [])).then(mods => {
-                            if (acao === 'ativar' && !mods.includes(modulo)) {
-                                batch.set(docRef, { modulos: [...mods, modulo] }, { merge: true });
-                            } else if (acao === 'desativar' && mods.includes(modulo)) {
-                                batch.set(docRef, { modulos: mods.filter(m => m !== modulo) }, { merge: true });
-                            }
-                        });
-                    });
-                    await batch.commit();
-                    registrarLog(`Aplicou ${acao} ao módulo ${modulo} em massa`);
-                    fecharModal();
-                    carregarGestaoModulos();
-                } catch (error) {
-                    console.error('Erro ao gerenciar módulos em massa:', error);
-                    alert('Erro ao processar a ação.');
-                }
-            });
-
-            mostrarModal('Ativar/Desativar Módulos em Massa', form, 'sucesso');
-        }
-
-        async function carregarAlertas() {
-            const content = document.getElementById('alertas-content');
-            content.innerHTML = '';
-
-            const snapshot = await db.collection('RegistrosPAeGlicemia')
-                .where('timestamp', '>=', firebase.firestore.Timestamp.fromDate(new Date(Date.now() - 24 * 60 * 60 * 1000)))
-                .orderBy('timestamp', 'desc')
-                .get();
-
-            const pacientesSnapshot = await db.collection('Pacientes').get();
-            const pacientes = Object.fromEntries(pacientesSnapshot.docs.map(doc => [doc.id, doc.data().nomeCompleto]));
-
-            snapshot.docs.forEach(doc => {
-                const data = doc.data();
-                const [sistolica, diastolica] = data.pa.split('/').map(Number);
-                const glicemia = data.glicemia;
-                if (sistolica > 140 || diastolica > 90 || glicemia > 126 || glicemia < 70) {
-                    const div = document.createElement('div');
-                    div.className = 'alert-item';
-                    div.innerHTML = `
-                        <strong>${pacientes[data.pacienteId] || data.pacienteId}</strong><br>
-                        ${formatarDataTopico(data.data)} - PA: ${data.pa}, Glicemia: ${data.glicemia}
-                    `;
-                    content.appendChild(div);
-                }
-            });
-
-            if (!content.children.length) {
-                content.innerHTML = '<p>Nenhum alerta nas últimas 24 horas.</p>';
-            }
-        }
-
-        async function carregarLogs() {
-            const content = document.getElementById('logs-content');
-            content.innerHTML = '';
-
-            const snapshot = await db.collection('Logs')
-                .orderBy('timestamp', 'desc')
-                .limit(50)
-                .get();
-
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                const li = document.createElement('li');
-                li.textContent = `${formatarDataTopico(data.timestamp.toDate())} - ${data.acao}`;
-                content.appendChild(li);
-            });
-
-            if (!content.children.length) {
-                content.innerHTML = '<p>Nenhum log registrado.</p>';
-            }
-        }
-
-        async function registrarLog(acao) {
-            await db.collection('Logs').add({
-                acao,
-                usuarioId: currentUserId,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        }
-
-        async function carregarConfiguracoes() {
-            const content = document.getElementById('configuracoes-content');
-            const configDoc = await db.collection('Configuracoes').doc('limites').get();
-            const limites = configDoc.exists ? configDoc.data() : { paSistolica: 140, paDiastolica: 90, glicemiaAlta: 126, glicemiaBaixa: 70 };
-
-            const form = document.createElement('form');
-            form.innerHTML = `
-                <h3>Limites de Alertas</h3>
-                <input type="number" name="paSistolica" value="${limites.paSistolica}" placeholder="PA Sistólica Máxima">
-                <input type="number" name="paDiastolica" value="${limites.paDiastolica}" placeholder="PA Diastólica Máxima">
-                <input type="number" name="glicemiaAlta" value="${limites.glicemiaAlta}" placeholder="Glicemia Alta">
-                <input type="number" name="glicemiaBaixa" value="${limites.glicemiaBaixa}" placeholder="Glicemia Baixa">
-                <textarea name="termos" placeholder="Termos de Uso">${(await db.collection('Configuracoes').doc('termos').get()).data()?.texto || ''}</textarea>
-                <button type="submit">Salvar</button>
-            `;
-
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const data = {
-                    paSistolica: parseInt(form.paSistolica.value),
-                    paDiastolica: parseInt(form.paDiastolica.value),
-                    glicemiaAlta: parseInt(form.glicemiaAlta.value),
-                    glicemiaBaixa: parseInt(form.glicemiaBaixa.value)
-                };
-                const termos = form.termos.value;
-
-                try {
-                    await db.collection('Configuracoes').doc('limites').set(data);
-                    await db.collection('Configuracoes').doc('termos').set({ texto: termos });
-                    registrarLog('Atualizou configurações');
-                    alert('Configurações salvas com sucesso!');
-                } catch (error) {
-                    console.error('Erro ao salvar configurações:', error);
-                    alert('Erro ao salvar configurações.');
-                }
-            });
-
-            content.innerHTML = '';
-            content.appendChild(form);
-        }
-
-        async function carregarSuporte() {
-            const content = document.getElementById('suporte-content');
-            content.innerHTML = '<p>Funcionalidade de suporte ainda não implementada.</p>';
-            // Aqui você pode adicionar um formulário para coletar feedback ou exibir mensagens de suporte no futuro
         }
 
         async function carregarPacientesAluno() {
@@ -1223,8 +942,7 @@
             }
             const [sistolica, diastolica] = pa.split('/').map(Number);
             const glicemiaNum = parseInt(glicemia);
-            const limites = (await db.collection('Configuracoes').doc('limites').get()).data() || { paSistolica: 140, paDiastolica: 90, glicemiaAlta: 126, glicemiaBaixa: 70 };
-            if (sistolica > limites.paSistolica || diastolica > limites.paDiastolica || glicemiaNum > limites.glicemiaAlta || glicemiaNum < limites.glicemiaBaixa) {
+            if (sistolica > 140 || diastolica > 90 || glicemiaNum > 126 || glicemiaNum < 70) {
                 mostrarModal('Atenção', 'Valores alterados! Consulte um médico.', 'alert');
             }
             const data = {
@@ -1778,4 +1496,295 @@
             }
 
             const medContainer = document.getElementById('historico-medicacoes');
-            medContainer.innerHTML = '<h3>Medicações</
+            medContainer.innerHTML = '<h3>Medicações</h3>';
+            const medSnapshot = await db.collection('Medicacoes')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            if (medSnapshot.empty) {
+                medContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                const list = document.createElement('ul');
+                list.className = 'records-list';
+                medSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const li = document.createElement('li');
+                    li.textContent = `• ${formatarDataTopico(data.data)} ${data.medicacoes.map(m => `${m.nome} ${m.dosagem} ${m.posologia}${m.horario ? ` (${m.horario})` : ''}`).join(', ')}`;
+                    list.appendChild(li);
+                });
+                medContainer.appendChild(list);
+            }
+
+            const aguaContainer = document.getElementById('historico-agua');
+            aguaContainer.innerHTML = '<h3>Ingestão de Água</h3>';
+            const aguaSnapshot = await db.collection('HistoricoAgua')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            if (aguaSnapshot.empty) {
+                aguaContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                const list = document.createElement('ul');
+                list.className = 'records-list';
+                aguaSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const li = document.createElement('li');
+                    li.textContent = `• ${formatarDataTopico(data.data)} ${data.acao}`;
+                    list.appendChild(li);
+                });
+                aguaContainer.appendChild(list);
+            }
+        }
+
+        async function verPerfilPaciente(pacienteId) {
+            const doc = await db.collection('Pacientes').doc(pacienteId).get();
+            const paciente = doc.data();
+
+            const form = document.createElement('div');
+            form.className = 'view-form';
+            form.innerHTML = `
+                <input type="text" value="${paciente.nomeCompleto}" readonly>
+                <input type="date" value="${paciente.dataNascimento}" readonly>
+                <input type="email" value="${paciente.email || ''}" readonly>
+                <input type="text" value="${paciente.cartaoSus || ''}" readonly>
+                <input type="text" value="${paciente.whatsapp}" readonly>
+                <input type="text" value="${paciente.usuario}" readonly>
+            `;
+
+            mostrarModal('Perfil do Paciente', form, 'sucesso');
+        }
+
+        async function editarUsuario(id) {
+            const doc = await db.collection('Alunos').doc(id).get();
+            const usuario = doc.data();
+
+            const form = document.createElement('form');
+            form.className = 'edit-form';
+            form.innerHTML = `
+                <input type="text" name="nomeCompleto" value="${usuario.nomeCompleto}" placeholder="Nome Completo" required>
+                <input type="text" name="matricula" value="${usuario.matricula}" placeholder="Matrícula" required>
+                <input type="email" name="email" value="${usuario.email}" placeholder="Email" required>
+                <input type="date" name="dataNascimento" value="${usuario.dataNascimento}" required>
+                <input type="text" name="whatsapp" value="${usuario.whatsapp}" placeholder="WhatsApp" required>
+                <input type="text" name="senha" value="${usuario.senha}" placeholder="Senha" required>
+                <select name="admin">
+                    <option value="no" ${usuario.admin !== 'yes' ? 'selected' : ''}>Usuário Comum</option>
+                    <option value="yes" ${usuario.admin === 'yes' ? 'selected' : ''}>Administrador</option>
+                </select>
+                <select name="status">
+                    <option value="aprovado" ${usuario.status === 'aprovado' ? 'selected' : ''}>Aprovado</option>
+                    <option value="pendente" ${usuario.status === 'pendente' ? 'selected' : ''}>Pendente</option>
+                    <option value="negado" ${usuario.status === 'negado' ? 'selected' : ''}>Negado</option>
+                </select>
+                <textarea name="motivoNegacao" placeholder="Motivo da negação">${usuario.motivoNegacao || ''}</textarea>
+                <button type="submit">Salvar</button>
+                <button type="button" onclick="excluirUsuario('${id}')">Excluir</button>
+            `;
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const data = {
+                    nomeCompleto: form.nomeCompleto.value,
+                    matricula: form.matricula.value,
+                    email: form.email.value,
+                    dataNascimento: form.dataNascimento.value,
+                    whatsapp: form.whatsapp.value,
+                    senha: form.senha.value,
+                    admin: form.admin.value,
+                    status: form.status.value,
+                    motivoNegacao: form.status.value === 'negado' ? form.motivoNegacao.value : ''
+                };
+
+                if (form.status.value === 'negado' && !form.motivoNegacao.value) {
+                    alert('O motivo da negação é obrigatório ao negar um usuário.');
+                    return;
+                }
+
+                try {
+                    await db.collection('Alunos').doc(id).update(data);
+                    registrarLog(`Usuário ${id} editado`);
+                    fecharModal();
+                } catch (error) {
+                    console.error('Erro ao atualizar usuário:', error);
+                    alert('Erro ao salvar as alterações: ' + error.message);
+                }
+            });
+
+            mostrarModal('Editar Usuário', form, 'sucesso');
+        }
+
+        async function excluirUsuario(id) {
+            if (confirm('Deseja realmente excluir este usuário?')) {
+                await db.collection('Alunos').doc(id).delete();
+                registrarLog(`Usuário ${id} excluído`);
+                fecharModal();
+            }
+        }
+
+        function abrirFormularioBroadcast() {
+            const form = document.createElement('form');
+            form.innerHTML = `
+                <textarea name="mensagem" placeholder="Digite a mensagem" rows="4" required></textarea>
+                <select name="destinatarios" required>
+                    <option value="todos">Todos</option>
+                    <option value="alunos">Apenas Alunos</option>
+                    <option value="pacientes">Apenas Pacientes</option>
+                    <option value="admins">Apenas Administradores</option>
+                </select>
+                <div class="toggle-btn" id="broadcast-toggle" onclick="toggleBroadcast(this)"></div>
+            `;
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const mensagem = form.mensagem.value;
+                const destinatarios = form.destinatarios.value;
+
+                try {
+                    await db.collection('Broadcast').doc('mensagemAtiva').set({
+                        mensagem,
+                        destinatarios,
+                        ativo: true,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    document.getElementById('broadcast-btn').classList.add('active');
+                    document.getElementById('broadcast-toggle').classList.add('active');
+                    registrarLog(`Broadcast enviado para ${destinatarios}`);
+                    fecharModal();
+                } catch (error) {
+                    console.error('Erro ao enviar broadcast:', error);
+                    alert('Erro ao enviar a mensagem.');
+                }
+            });
+
+            db.collection('Broadcast').doc('mensagemAtiva').get().then(doc => {
+                if (doc.exists && doc.data().ativo) {
+                    document.getElementById('broadcast-toggle').classList.add('active');
+                }
+            });
+
+            mostrarModal('Enviar Mensagem', form, 'sucesso');
+        }
+
+        async function toggleBroadcast(toggleBtn) {
+            const isActive = toggleBtn.classList.contains('active');
+            try {
+                if (isActive) {
+                    await db.collection('Broadcast').doc('mensagemAtiva').update({ ativo: false });
+                    toggleBtn.classList.remove('active');
+                    document.getElementById('broadcast-btn').classList.remove('active');
+                    registrarLog('Broadcast desativado');
+                    fecharBroadcastModal();
+                } else {
+                    const form = toggleBtn.closest('form');
+                    const mensagem = form.querySelector('textarea[name="mensagem"]').value;
+                    const destinatarios = form.querySelector('select[name="destinatarios"]').value;
+                    if (!mensagem) {
+                        alert('Digite uma mensagem antes de ativar!');
+                        return;
+                    }
+                    await db.collection('Broadcast').doc('mensagemAtiva').set({
+                        mensagem,
+                        destinatarios,
+                        ativo: true,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    toggleBtn.classList.add('active');
+                    document.getElementById('broadcast-btn').classList.add('active');
+                    registrarLog(`Broadcast ativado para ${destinatarios}`);
+                }
+            } catch (error) {
+                console.error('Erro ao alternar broadcast:', error);
+                alert('Erro ao alternar o broadcast.');
+            }
+        }
+
+        async function verificarBroadcast() {
+            db.collection('Broadcast').doc('mensagemAtiva').onSnapshot(async doc => {
+                if (doc.exists && doc.data().ativo) {
+                    const { mensagem, destinatarios } = doc.data();
+                    let exibir = false;
+
+                    if (destinatarios === 'todos') exibir = true;
+                    else if (destinatarios === 'pacientes' && currentPacienteId) exibir = true;
+                    else if (destinatarios === 'admins' && currentUserId) {
+                        const userDoc = await db.collection('Alunos').doc(currentUserId).get();
+                        if (userDoc.exists && userDoc.data().admin === 'yes') exibir = true;
+                    } else if (destinatarios === 'alunos' && currentUserId) {
+                        const userDoc = await db.collection('Alunos').doc(currentUserId).get();
+                        if (userDoc.exists && userDoc.data().admin !== 'yes') exibir = true;
+                    }
+
+                    if (exibir) {
+                        mostrarBroadcast(mensagem);
+                        document.getElementById('broadcast-btn').classList.add('active');
+                    } else {
+                        fecharBroadcastModal();
+                    }
+                } else {
+                    fecharBroadcastModal();
+                    document.getElementById('broadcast-btn').classList.remove('active');
+                }
+            });
+        }
+
+        // Novas funções para as funcionalidades adicionais
+
+        // 1. Gestão de Pacientes
+        async function carregarPacientes() {
+            const lista = document.getElementById('lista-pacientes-admin');
+            const search = document.getElementById('search-pacientes-admin');
+            
+            const snapshot = await db.collection('Pacientes').get();
+            lista.innerHTML = '';
+            const pacientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            const filteredPacientes = pacientes.filter(p => 
+                p.nomeCompleto.toLowerCase().includes(search.value.toLowerCase())
+            );
+
+            filteredPacientes.sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
+
+            filteredPacientes.forEach(paciente => {
+                const div = document.createElement('div');
+                div.className = 'user-item';
+                div.innerHTML = `
+                    <div>
+                        <strong>${paciente.nomeCompleto}</strong> (${paciente.whatsapp})
+                    </div>
+                    <button onclick="verPerfilPaciente('${paciente.id}')">Ver Perfil</button>
+                `;
+                lista.appendChild(div);
+            });
+
+            search.oninput = () => carregarPacientes();
+        }
+
+        function exportarPacientesCSV() {
+            db.collection('Pacientes').get().then(snapshot => {
+                const pacientes = snapshot.docs.map(doc => doc.data());
+                const csv = [
+                    "Nome Completo,Data Nascimento,Email,Cartão SUS,WhatsApp,Usuário",
+                    ...pacientes.map(p => `${p.nomeCompleto},${p.dataNascimento},${p.email},${p.cartaoSus},${p.whatsapp},${p.usuario}`)
+                ].join('\n');
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'pacientes.csv';
+                a.click();
+                registrarLog('Exportação de pacientes em CSV realizada');
+            });
+        }
+
+        // 2. Relatórios e Estatísticas
+        async function carregarRelatorios() {
+            const content = document.getElementById('stats-content');
+            content.innerHTML = '';
+
+            const alunos = (await db.collection('Alunos').get()).size;
+            const pacientes = (await db.collection('Pacientes').get()).size;
+            const paRegistros = (await db.collection('RegistrosPAeGlicemia').get()).size;
+            const aguaRegistros = (await db.collection('IngestaoAgua').get()).size;
+
+            content.innerHTML = `
+                <div class="stat-card"><h3>Alunos</h3><p>${alunos}</
