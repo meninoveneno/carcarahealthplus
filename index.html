@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#8B0000"> <!-- Cor da barra de status -->
-    <meta name="apple-mobile-web-app-capable" content="yes"> <!-- Suporte iOS tela cheia -->
+    <meta name="theme-color" content="#8B0000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="mobile-web-app-capable" content="yes"> <!-- Suporte Android tela cheia -->
+    <meta name="mobile-web-app-capable" content="yes">
     <title>Carcará Health +</title>
     <link rel="manifest" href="/manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -377,6 +378,45 @@
             margin-top: 10px;
             display: none;
         }
+
+        /* Estilos para módulos customizados */
+        .custom-module {
+            border: 1px solid #444;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            background: #2c3e50;
+        }
+
+        .custom-module h3 {
+            color: #8B0000;
+            margin-bottom: 10px;
+        }
+
+        .custom-module iframe {
+            width: 100%;
+            border: none;
+            min-height: 200px;
+            background: white;
+            border-radius: 5px;
+        }
+
+        .card {
+            background: #2c3e50;
+            border: 1px solid #444;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .card-header {
+            padding: 0.75rem 1.25rem;
+            background: #1a2a4a;
+            border-bottom: 1px solid #444;
+        }
+
+        .card-body {
+            padding: 1.25rem;
+        }
     </style>
 </head>
 <body>
@@ -516,6 +556,7 @@
         <button id="broadcast-btn" class="broadcast-btn" onclick="abrirFormularioBroadcast()">📢 Enviar Mensagem</button>
         <div class="abas">
             <button onclick="mostrarAba('usuarios'); carregarUsuarios();">Usuários</button>
+            <button onclick="mostrarAba('modulos'); carregarModulosCustomizados();">Módulos Custom</button>
         </div>
 
         <!-- Aba Usuários -->
@@ -523,6 +564,45 @@
             <h2>Usuários</h2>
             <input type="text" class="search-bar" id="search-usuarios" placeholder="Pesquisar usuários...">
             <div id="lista-usuarios"></div>
+        </div>
+
+        <!-- Nova Aba de Módulos Customizados -->
+        <div id="aba-modulos" class="aba">
+            <h2>Módulos Customizados</h2>
+            
+            <!-- Formulário de Criação/Edição -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4>Adicionar/Editar Módulo</h4>
+                </div>
+                <div class="card-body">
+                    <form id="formModuloCustom" onsubmit="salvarModuloCustom(event)">
+                        <input type="hidden" id="moduloEditId" value="">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Nome do Módulo</label>
+                            <input type="text" id="moduloNome" class="form-control" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Código HTML</label>
+                            <textarea id="moduloHTML" class="form-control" rows="10" required></textarea>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Salvar Módulo</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Lista de Módulos Existentes -->
+            <div class="card">
+                <div class="card-header">
+                    <h4>Módulos Disponíveis</h4>
+                </div>
+                <div class="card-body">
+                    <div id="lista-modulos" class="patient-list"></div>
+                </div>
+            </div>
         </div>
 
         <button class="back-btn" onclick="sairAreaAdmin()">Voltar</button>
@@ -649,6 +729,81 @@
             mostrarTela('tela-inicial');
         }
 
+        // Função para carregar módulos customizados
+        async function carregarModulosCustomizados() {
+            const lista = document.getElementById('lista-modulos');
+            lista.innerHTML = '';
+
+            const snapshot = await db.collection('custom_modules').get();
+            snapshot.forEach(doc => {
+                const modulo = doc.data();
+                const div = document.createElement('div');
+                div.className = 'user-item';
+                div.innerHTML = `
+                    <div>
+                        <strong>${modulo.moduleName}</strong>
+                        ${modulo.isActive ? '<span class="status-indicator approved"></span>' : '<span class="status-indicator denied"></span>'}
+                    </div>
+                    <div>
+                        <button class="module-btn" onclick="editarModuloCustom('${doc.id}')">Editar</button>
+                        <button class="delete-btn" onclick="toggleModuloCustom('${doc.id}', ${!modulo.isActive})">
+                            ${modulo.isActive ? 'Desativar' : 'Ativar'}
+                        </button>
+                    </div>
+                `;
+                lista.appendChild(div);
+            });
+        }
+
+        // Função para salvar/editar módulo
+        async function salvarModuloCustom(e) {
+            e.preventDefault();
+            const id = document.getElementById('moduloEditId').value;
+            const moduleName = document.getElementById('moduloNome').value;
+            const htmlContent = document.getElementById('moduloHTML').value;
+
+            const moduloData = {
+                moduleName,
+                htmlContent,
+                isActive: true,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                if (id) {
+                    await db.collection('custom_modules').doc(id).update(moduloData);
+                } else {
+                    await db.collection('custom_modules').add(moduloData);
+                }
+                carregarModulosCustomizados();
+                document.getElementById('formModuloCustom').reset();
+                document.getElementById('moduloEditId').value = '';
+            } catch (error) {
+                console.error('Erro ao salvar módulo:', error);
+                alert('Erro ao salvar o módulo!');
+            }
+        }
+
+        // Função para editar módulo
+        async function editarModuloCustom(id) {
+            const doc = await db.collection('custom_modules').doc(id).get();
+            const modulo = doc.data();
+            
+            document.getElementById('moduloEditId').value = id;
+            document.getElementById('moduloNome').value = modulo.moduleName;
+            document.getElementById('moduloHTML').value = modulo.htmlContent;
+        }
+
+        // Função para ativar/desativar módulo
+        async function toggleModuloCustom(id, status) {
+            await db.collection('custom_modules').doc(id).update({
+                isActive: status,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            carregarModulosCustomizados();
+        }
+
         async function carregarUsuarios() {
             if (usuariosListener) usuariosListener();
             const lista = document.getElementById('lista-usuarios');
@@ -711,22 +866,46 @@
 
                 filteredPacientes.sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
 
+                // Carregar módulos customizados ativos
+                const customModulesSnapshot = await db.collection('custom_modules')
+                    .where('isActive', '==', true)
+                    .get();
+
                 for (const paciente of filteredPacientes) {
                     const modulosDoc = await db.collection('ModulosAtivos').doc(paciente.id).get();
                     const modulosAtivos = modulosDoc.exists ? modulosDoc.data().modulos || [] : [];
 
                     const div = document.createElement('div');
                     div.className = 'user-item';
+                    
+                    // Botões para módulos padrão
+                    let buttonsHTML = `
+                        <button class="module-btn ${modulosAtivos.includes('pa_glicemia') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'pa_glicemia', this)">P.A./Glicemia</button>
+                        <button class="module-btn ${modulosAtivos.includes('anotacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'anotacoes', this)">Anotações</button>
+                        <button class="module-btn ${modulosAtivos.includes('medicacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'medicacoes', this)">Medicações</button>
+                        <button class="module-btn ${modulosAtivos.includes('modulo4') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'modulo4', this)">Lembrete Água</button>
+                    `;
+
+                    // Adicionar botões para módulos customizados
+                    customModulesSnapshot.forEach(doc => {
+                        const moduloId = `custom_${doc.id}`;
+                        buttonsHTML += `
+                            <button class="module-btn ${modulosAtivos.includes(moduloId) ? 'active' : ''}" 
+                                    onclick="toggleModulo('${paciente.id}', '${moduloId}', this)">
+                                ${doc.data().moduleName}
+                            </button>
+                        `;
+                    });
+
+                    // Adicionar botão de perfil
+                    buttonsHTML += `<button class="profile-btn" onclick="verPerfilPaciente('${paciente.id}')">👤</button>`;
+
                     div.innerHTML = `
                         <div>
                             <strong>${paciente.nomeCompleto}</strong>
                         </div>
                         <div>
-                            <button class="module-btn ${modulosAtivos.includes('pa_glicemia') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'pa_glicemia', this)">P.A./Glicemia</button>
-                            <button class="module-btn ${modulosAtivos.includes('anotacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'anotacoes', this)">Anotações</button>
-                            <button class="module-btn ${modulosAtivos.includes('medicacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'medicacoes', this)">Medicações</button>
-                            <button class="module-btn ${modulosAtivos.includes('modulo4') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'modulo4', this)">Lembrete Água</button>
-                            <button class="profile-btn" onclick="verPerfilPaciente('${paciente.id}')">👤</button>
+                            ${buttonsHTML}
                         </div>
                     `;
                     lista.appendChild(div);
@@ -738,6 +917,12 @@
         }
 
         async function toggleModulo(pacienteId, modulo, button) {
+            // Verificar se é um módulo custom
+            const isCustomModule = modulo.startsWith('custom_');
+            
+            // Para módulos custom, usar ID direto
+            const moduloId = isCustomModule ? modulo.replace('custom_', '') : modulo;
+
             const docRef = db.collection('ModulosAtivos').doc(pacienteId);
             const doc = await docRef.get();
             let modulosAtivos = doc.exists ? doc.data().modulos || [] : [];
@@ -761,10 +946,11 @@
             pacienteNome.textContent = `Módulos - ${pacienteDoc.data().nomeCompleto}`;
 
             if (modulosListener) modulosListener();
-            modulosListener = db.collection('ModulosAtivos').doc(pacienteId).onSnapshot(doc => {
+            modulosListener = db.collection('ModulosAtivos').doc(pacienteId).onSnapshot(async doc => {
                 content.innerHTML = '';
                 const modulosAtivos = doc.exists ? doc.data().modulos || [] : [];
 
+                // Módulos padrão (existente)
                 if (modulosAtivos.includes('pa_glicemia')) {
                     const container = document.createElement('div');
                     container.className = 'module-container';
@@ -838,11 +1024,41 @@
                     carregarDadosAgua(pacienteId);
                 }
 
+                // Carregar módulos customizados ativos
+                const customModulesSnapshot = await db.collection('custom_modules')
+                    .where('isActive', '==', true)
+                    .get();
+
+                customModulesSnapshot.forEach(async doc => {
+                    const moduloId = `custom_${doc.id}`;
+                    if (modulosAtivos.includes(moduloId)) {
+                        const modulo = doc.data();
+                        const container = document.createElement('div');
+                        container.className = 'module-container custom-module';
+                        
+                        // Substituir placeholders dinâmicos
+                        let htmlContent = modulo.htmlContent;
+                        const pacienteData = pacienteDoc.data();
+                        
+                        htmlContent = htmlContent
+                            .replace(/{{patientId}}/g, pacienteId)
+                            .replace(/{{patientName}}/g, pacienteData.nomeCompleto)
+                            .replace(/{{patientPhone}}/g, pacienteData.whatsapp)
+                            .replace(/{{patientEmail}}/g, pacienteData.email || '')
+                            .replace(/{{patientSUS}}/g, pacienteData.cartaoSus || '');
+
+                        container.innerHTML = htmlContent;
+                        content.appendChild(container);
+                    }
+                });
+
                 if (modulosAtivos.length === 0) {
                     content.innerHTML = '<p>Nenhum módulo ativo para este paciente.</p>';
                 }
             });
         }
+
+        // ... (restante das funções existentes permanecem iguais) ...
 
         async function salvarPA(pacienteId) {
             const pa = document.getElementById(`pa_${pacienteId}`).value;
