@@ -87,6 +87,11 @@
             font-size: 0.9rem;
         }
 
+        textarea.editable {
+            background: #fff;
+            color: #000;
+        }
+
         .hidden {
             display: none;
         }
@@ -111,6 +116,26 @@
             color: white;
             width: 90%;
             max-width: 700px;
+        }
+
+        .modal.pendente {
+            background: #ffeb3b;
+            color: black;
+        }
+
+        .modal.negado {
+            background: #f44336;
+            color: white;
+        }
+
+        .modal.broadcast {
+            background: #ffeb3b;
+            color: black;
+            position: fixed;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000;
         }
 
         .modal.alert {
@@ -245,6 +270,45 @@
             margin-top: 10px;
         }
 
+        .broadcast-btn {
+            background: #ff9800;
+            margin-bottom: 1rem;
+        }
+
+        .broadcast-btn.active {
+            background: #4caf50;
+        }
+
+        .toggle-btn {
+            position: relative;
+            width: 60px;
+            height: 30px;
+            background: #ccc;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle-btn.active {
+            background: #4caf50;
+        }
+
+        .toggle-btn::before {
+            content: '';
+            position: absolute;
+            width: 26px;
+            height: 26px;
+            left: 2px;
+            top: 2px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .toggle-btn.active::before {
+            transform: translateX(30px);
+        }
+
         .records-list {
             margin-top: 10px;
             max-height: 200px;
@@ -275,6 +339,10 @@
             margin: 10px 0;
         }
 
+        .water-counter span {
+            font-size: 1.2rem;
+        }
+
         .water-progress {
             width: 100%;
             height: 20px;
@@ -295,6 +363,15 @@
             margin: 10px 0;
             text-align: center;
         }
+
+        .water-alert {
+            background: #ffeb3b;
+            color: black;
+            padding: 8px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -304,6 +381,13 @@
         <h3 id="modal-title"></h3>
         <div id="modal-content"></div>
         <button class="close-btn" onclick="fecharModal()">Fechar</button>
+    </div>
+
+    <!-- Modal de Broadcast -->
+    <div class="modal broadcast" id="broadcast-modal">
+        <h3>Mensagem da Administração</h3>
+        <p id="broadcast-message"></p>
+        <button class="close-btn" onclick="fecharBroadcastModal()">Fechar</button>
     </div>
 
     <!-- Telas -->
@@ -354,6 +438,9 @@
     <!-- Área do Aluno -->
     <div id="area-aluno" class="container hidden">
         <h1>Área do Aluno</h1>
+        <div id="mensagem-admin" class="hidden">
+            <p><strong>Mensagem do Administrador:</strong> <span id="texto-mensagem"></span></p>
+        </div>
         <input type="text" class="search-bar" id="search-pacientes" placeholder="Pesquisar pacientes...">
         <div class="patient-list" id="lista-pacientes-aluno"></div>
         <button class="back-btn" onclick="sairAreaAluno()">Sair</button>
@@ -421,37 +508,42 @@
     <!-- Painel do Administrador -->
     <div id="painel-admin" class="container hidden">
         <h1>Painel do Administrador</h1>
+        <button id="broadcast-btn" class="broadcast-btn" onclick="abrirFormularioBroadcast()">📢 Enviar Mensagem</button>
         <div class="abas">
             <button onclick="mostrarAba('usuarios'); carregarUsuarios();">Usuários</button>
         </div>
+
+        <!-- Aba Usuários -->
         <div id="aba-usuarios" class="aba visible">
             <h2>Usuários</h2>
             <input type="text" class="search-bar" id="search-usuarios" placeholder="Pesquisar usuários...">
             <div id="lista-usuarios"></div>
         </div>
-        <button class="back-btn" onclick="sairAreaAdmin()">Sair</button>
+
+        <button class="back-btn" onclick="sairAreaAdmin()">Voltar</button>
     </div>
 
     <script>
         const firebaseConfig = {
-            apiKey: "Sua_API_Key",
-            authDomain: "Seu_Domínio",
-            projectId: "Seu_Projeto",
-            storageBucket: "Seu_Bucket",
-            messagingSenderId: "Seu_Sender_ID",
-            appId: "Seu_App_ID"
+            apiKey: "AIzaSyC6MCXqH2TXWzahesHtyk7JeB-gHshiWFc",
+            authDomain: "carcarahealthplus-4ef7b.firebaseapp.com",
+            projectId: "carcarahealthplus-4ef7b",
+            storageBucket: "carcarahealthplus-4ef7b.firebasestorage.app",
+            messagingSenderId: "149920030952",
+            appId: "1:149920030952:web:e19ea0ba0b0f400d18295d"
         };
 
-        let db;
+        let db, auth;
         let currentUserId = null;
-        let currentPacienteId = null;
         let pacientesListener = null;
         let usuariosListener = null;
+        let currentPacienteId = null;
         let modulosListener = null;
 
         try {
             firebase.initializeApp(firebaseConfig);
             db = firebase.firestore();
+            auth = firebase.auth();
             console.log('Firebase inicializado');
         } catch (e) {
             alert('Erro ao carregar Firebase: ' + e.message);
@@ -470,19 +562,27 @@
         function mostrarTela(idTela) {
             document.querySelectorAll('.container').forEach(tela => tela.classList.add('hidden'));
             document.getElementById(idTela).classList.remove('hidden');
-            if (idTela === 'area-aluno') carregarPacientesAluno();
-            else if (idTela === 'tela-modulos' && currentPacienteId) carregarModulosPaciente(currentPacienteId);
-            else if (idTela === 'painel-admin') carregarUsuarios();
+            if (idTela === 'area-aluno') {
+                carregarPacientesAluno();
+            } else if (idTela === 'tela-modulos' && currentPacienteId) {
+                carregarModulosPaciente(currentPacienteId);
+            }
+            verificarBroadcast();
         }
 
-        function mostrarModal(titulo, conteudo, tipo = '') {
+        function mostrarModal(titulo, conteudo, status) {
             const modal = document.getElementById('modal');
-            modal.className = `modal ${tipo}`;
+            modal.className = `modal ${status || ''}`;
             document.getElementById('modal-title').textContent = titulo;
-            document.getElementById('modal-content').textContent = conteudo;
+            if (typeof conteudo === 'string') {
+                document.getElementById('modal-content').textContent = conteudo;
+            } else {
+                document.getElementById('modal-content').innerHTML = '';
+                document.getElementById('modal-content').appendChild(conteudo);
+            }
             modal.style.display = 'block';
             document.getElementById('overlay').style.display = 'block';
-            setTimeout(fecharModal, tipo === 'alert' ? 3000 : Infinity);
+            if (status === 'alert') setTimeout(fecharModal, 3000);
         }
 
         function fecharModal() {
@@ -490,16 +590,25 @@
             document.getElementById('overlay').style.display = 'none';
         }
 
-        function mostrarAbaPaciente(aba) {
-            document.querySelectorAll('#tela-modulos .aba').forEach(a => a.classList.remove('visible'));
-            document.querySelectorAll('#tela-modulos .aba-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(`aba-${aba}`).classList.add('visible');
-            document.querySelector(`button[onclick="mostrarAbaPaciente('${aba}');"]`).classList.add('active');
+        function mostrarBroadcast(mensagem) {
+            document.getElementById('broadcast-message').textContent = mensagem;
+            document.getElementById('broadcast-modal').style.display = 'block';
+        }
+
+        function fecharBroadcastModal() {
+            document.getElementById('broadcast-modal').style.display = 'none';
         }
 
         function mostrarAba(aba) {
-            document.querySelectorAll('#painel-admin .aba').forEach(a => a.classList.remove('visible'));
+            document.querySelectorAll('.aba').forEach(aba => aba.classList.remove('visible'));
             document.getElementById(`aba-${aba}`).classList.add('visible');
+        }
+
+        function mostrarAbaPaciente(aba) {
+            document.querySelectorAll('#tela-modulos .aba').forEach(aba => aba.classList.remove('visible'));
+            document.querySelectorAll('#tela-modulos .aba-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`aba-${aba}`).classList.add('visible');
+            document.querySelector(`button[onclick="mostrarAbaPaciente('${aba}');"]`).classList.add('active');
         }
 
         function sairAreaAluno() {
@@ -522,6 +631,53 @@
             mostrarTela('tela-inicial');
         }
 
+        async function carregarUsuarios() {
+            if (usuariosListener) usuariosListener();
+            const lista = document.getElementById('lista-usuarios');
+            const search = document.getElementById('search-usuarios');
+
+            usuariosListener = db.collection('Alunos').onSnapshot(snapshot => {
+                lista.innerHTML = '';
+                const usuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                const filteredUsuarios = usuarios.filter(u => 
+                    u.nomeCompleto.toLowerCase().includes(search.value.toLowerCase()) ||
+                    u.usuario.toLowerCase().includes(search.value.toLowerCase())
+                );
+
+                filteredUsuarios.sort((a, b) => {
+                    const aIsAdmin = a.admin === 'yes';
+                    const bIsAdmin = b.admin === 'yes';
+                    if (aIsAdmin !== bIsAdmin) return bIsAdmin - aIsAdmin;
+                    return a.nomeCompleto.localeCompare(b.nomeCompleto);
+                });
+
+                filteredUsuarios.forEach(usuario => {
+                    const div = document.createElement('div');
+                    div.className = 'user-item';
+                    const isAdmin = usuario.admin === 'yes';
+                    let statusClass;
+                    switch (usuario.status) {
+                        case 'aprovado': statusClass = 'approved'; break;
+                        case 'pendente': statusClass = 'pending'; break;
+                        case 'negado': statusClass = 'denied'; break;
+                    }
+                    div.innerHTML = `
+                        <div>
+                            <span class="status-indicator ${statusClass}"></span>
+                            <strong>${usuario.nomeCompleto}</strong> (${usuario.usuario})
+                            ${isAdmin ? '<span class="badge-admin">Admin</span>' : ''}
+                        </div>
+                        <button onclick="editarUsuario('${usuario.id}')">Editar</button>
+                    `;
+                    lista.appendChild(div);
+                });
+            });
+
+            search.removeEventListener('input', carregarUsuarios);
+            search.addEventListener('input', carregarUsuarios);
+        }
+
         async function carregarPacientesAluno() {
             const lista = document.getElementById('lista-pacientes-aluno');
             const search = document.getElementById('search-pacientes');
@@ -530,9 +686,12 @@
             pacientesListener = db.collection('Pacientes').onSnapshot(async snapshot => {
                 lista.innerHTML = '';
                 const pacientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
                 const filteredPacientes = pacientes.filter(p => 
                     p.nomeCompleto.toLowerCase().includes(search.value.toLowerCase())
                 );
+
+                filteredPacientes.sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
 
                 for (const paciente of filteredPacientes) {
                     const modulosDoc = await db.collection('ModulosAtivos').doc(paciente.id).get();
@@ -541,7 +700,9 @@
                     const div = document.createElement('div');
                     div.className = 'user-item';
                     div.innerHTML = `
-                        <div><strong>${paciente.nomeCompleto}</strong></div>
+                        <div>
+                            <strong>${paciente.nomeCompleto}</strong>
+                        </div>
                         <div>
                             <button class="module-btn ${modulosAtivos.includes('pa_glicemia') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'pa_glicemia', this)">P.A./Glicemia</button>
                             <button class="module-btn ${modulosAtivos.includes('anotacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'anotacoes', this)">Anotações</button>
@@ -554,6 +715,7 @@
                 }
             });
 
+            search.removeEventListener('input', carregarPacientesAluno);
             search.addEventListener('input', carregarPacientesAluno);
         }
 
@@ -576,6 +738,7 @@
         async function carregarModulosPaciente(pacienteId) {
             const pacienteNome = document.getElementById('paciente-nome');
             const content = document.getElementById('module-content');
+
             const pacienteDoc = await db.collection('Pacientes').doc(pacienteId).get();
             pacienteNome.textContent = `Módulos - ${pacienteDoc.data().nomeCompleto}`;
 
@@ -585,69 +748,75 @@
                 const modulosAtivos = doc.exists ? doc.data().modulos || [] : [];
 
                 if (modulosAtivos.includes('pa_glicemia')) {
-                    content.innerHTML += `
-                        <div class="module-container">
-                            <h3>P.A. e Glicemia</h3>
-                            <input type="text" id="pa_${pacienteId}" placeholder="Pressão Arterial (ex: 120/80)">
-                            <input type="number" id="glicemia_${pacienteId}" placeholder="Glicemia (mg/dL)">
-                            <button onclick="salvarPA('${pacienteId}')">Adicionar Aferição</button>
-                            <ul class="records-list" id="pa-list_${pacienteId}"></ul>
-                        </div>
+                    const container = document.createElement('div');
+                    container.className = 'module-container';
+                    container.innerHTML = `
+                        <h3>P.A. e Glicemia</h3>
+                        <input type="text" id="pa_${pacienteId}" placeholder="Pressão Arterial (ex: 120/80)">
+                        <input type="number" id="glicemia_${pacienteId}" placeholder="Glicemia (mg/dL)">
+                        <button onclick="salvarPA('${pacienteId}')">Adicionar Aferição</button>
+                        <ul class="records-list" id="pa-list_${pacienteId}"></ul>
                     `;
+                    content.appendChild(container);
                     carregarListaPA(pacienteId);
                 }
 
                 if (modulosAtivos.includes('anotacoes')) {
-                    content.innerHTML += `
-                        <div class="module-container">
-                            <h3>Anotações Médicas</h3>
-                            <textarea id="anotacoes_${pacienteId}" placeholder="Digite suas anotações médicas" rows="5"></textarea>
-                            <button onclick="salvarAnotacoes('${pacienteId}')">Salvar</button>
-                            <ul class="records-list" id="anotacoes-list_${pacienteId}"></ul>
-                        </div>
+                    const container = document.createElement('div');
+                    container.className = 'module-container';
+                    container.innerHTML = `
+                        <h3>Anotações Médicas</h3>
+                        <textarea id="anotacoes_${pacienteId}" placeholder="Digite suas anotações médicas" rows="5"></textarea>
+                        <button onclick="salvarAnotacoes('${pacienteId}')">Salvar</button>
+                        <ul class="records-list" id="anotacoes-list_${pacienteId}"></ul>
                     `;
+                    content.appendChild(container);
                     carregarListaAnotacoes(pacienteId);
                 }
 
                 if (modulosAtivos.includes('medicacoes')) {
-                    content.innerHTML += `
-                        <div class="module-container">
-                            <h3>Registro de Medicações</h3>
-                            <div id="medication-list_${pacienteId}">
-                                <div class="medication-entry">
-                                    <input type="text" name="nome" placeholder="Nome da medicação">
-                                    <input type="text" name="dosagem" placeholder="Dosagem">
-                                    <input type="text" name="posologia" placeholder="Posologia">
-                                    <input type="time" name="horario" placeholder="Horário">
-                                    <button type="button" onclick="removerMedicacao(this)">-</button>
-                                </div>
+                    const container = document.createElement('div');
+                    container.className = 'module-container';
+                    container.innerHTML = `
+                        <h3>Registro de Medicações</h3>
+                        <div id="medication-list_${pacienteId}">
+                            <div class="medication-entry">
+                                <input type="text" name="nome" placeholder="Nome da medicação">
+                                <input type="text" name="dosagem" placeholder="Dosagem">
+                                <input type="text" name="posologia" placeholder="Posologia">
+                                <input type="time" name="horario" placeholder="Horário">
+                                <button type="button" onclick="removerMedicacao(this)">-</button>
                             </div>
-                            <button onclick="adicionarMedicacao('${pacienteId}')">+ Adicionar Medicação</button>
-                            <button onclick="salvarMedicacoes('${pacienteId}')">Salvar</button>
-                            <ul class="records-list" id="medicacoes-list_${pacienteId}"></ul>
                         </div>
+                        <button onclick="adicionarMedicacao('${pacienteId}')">+ Adicionar Medicação</button>
+                        <button onclick="salvarMedicacoes('${pacienteId}')">Salvar</button>
+                        <ul class="records-list" id="medicacoes-list_${pacienteId}"></ul>
                     `;
+                    content.appendChild(container);
                     carregarListaMedicacoes(pacienteId);
                 }
 
                 if (modulosAtivos.includes('modulo4')) {
-                    content.innerHTML += `
-                        <div class="module-container">
-                            <h3>Lembrete de Ingestão de Água</h3>
-                            <div class="water-counter">
-                                <button onclick="diminuirAgua('${pacienteId}')">-</button>
-                                <span id="water-count_${pacienteId}">0</span> copos (200ml)
-                                <button onclick="adicionarAgua('${pacienteId}')">+</button>
-                            </div>
-                            <div class="water-progress">
-                                <div class="water-progress-fill" id="water-progress_${pacienteId}" style="width: 0%"></div>
-                            </div>
-                            <input type="number" id="water-goal_${pacienteId}" placeholder="Meta diária (copos)" min="1">
-                            <button onclick="definirMetaAgua('${pacienteId}')">Definir Meta</button>
-                            <button onclick="iniciarTimerAgua('${pacienteId}')">Iniciar Lembrete (2h)</button>
-                            <ul class="records-list" id="water-list_${pacienteId}"></ul>
+                    const container = document.createElement('div');
+                    container.className = 'module-container';
+                    container.innerHTML = `
+                        <h3>Lembrete de Ingestão de Água</h3>
+                        <div class="water-counter">
+                            <button onclick="diminuirAgua('${pacienteId}')">-</button>
+                            <span id="water-count_${pacienteId}">0</span> copos (200ml)
+                            <button onclick="adicionarAgua('${pacienteId}')">+</button>
                         </div>
+                        <div class="water-progress">
+                            <div class="water-progress-fill" id="water-progress_${pacienteId}" style="width: 0%"></div>
+                        </div>
+                        <input type="number" id="water-goal_${pacienteId}" placeholder="Meta diária (copos)" min="1">
+                        <button onclick="definirMetaAgua('${pacienteId}')">Definir Meta</button>
+                        <div class="timer-display" id="water-timer_${pacienteId}">Próximo lembrete: --:--</div>
+                        <button onclick="iniciarTimerAgua('${pacienteId}')">Iniciar Lembrete (2h)</button>
+                        <div class="water-alert" id="water-alert_${pacienteId}">Hora de beber água!</div>
+                        <ul class="records-list" id="water-list_${pacienteId}"></ul>
                     `;
+                    content.appendChild(container);
                     carregarDadosAgua(pacienteId);
                 }
 
@@ -660,20 +829,19 @@
         // Funções de salvamento, exclusão e carregamento
         async function salvarPA(pacienteId) {
             const pa = document.getElementById(`pa_${pacienteId}`).value;
-            const glicemia = parseInt(document.getElementById(`glicemia_${pacienteId}`).value);
+            const glicemia = document.getElementById(`glicemia_${pacienteId}`).value;
             if (!pa || !glicemia) {
                 alert('Preencha ambos os campos!');
                 return;
             }
-
             const [sistolica, diastolica] = pa.split('/').map(Number);
-            if (sistolica > 140 || diastolica > 90 || glicemia > 126 || glicemia < 70) {
+            const glicemiaNum = parseInt(glicemia);
+            if (sistolica > 140 || diastolica > 90 || glicemiaNum > 126 || glicemiaNum < 70) {
                 mostrarModal('Atenção', 'Valores alterados! Consulte um médico.', 'alert');
             }
-
             const data = {
                 pa,
-                glicemia,
+                glicemia: glicemiaNum,
                 data: new Date().toISOString(),
                 pacienteId,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
@@ -682,16 +850,20 @@
             try {
                 const docRef = await db.collection('RegistrosPAeGlicemia').add(data);
                 data.id = docRef.id;
+
                 let localData = JSON.parse(localStorage.getItem(`pa_${pacienteId}`)) || [];
                 localData.push(data);
                 localStorage.setItem(`pa_${pacienteId}`, JSON.stringify(localData));
-                carregarListaPA(pacienteId);
+
                 document.getElementById(`pa_${pacienteId}`).value = '';
                 document.getElementById(`glicemia_${pacienteId}`).value = '';
+                carregarListaPA(pacienteId);
+                alert('Aferição salva com sucesso!');
             } catch (error) {
                 console.error('Erro ao salvar:', error);
-                data.id = Date.now().toString();
+                alert('Erro ao salvar a aferição. Salvando apenas localmente.');
                 let localData = JSON.parse(localStorage.getItem(`pa_${pacienteId}`)) || [];
+                data.id = Date.now().toString();
                 localData.push(data);
                 localStorage.setItem(`pa_${pacienteId}`, JSON.stringify(localData));
                 carregarListaPA(pacienteId);
@@ -715,6 +887,7 @@
         async function carregarListaPA(pacienteId) {
             const list = document.getElementById(`pa-list_${pacienteId}`);
             list.innerHTML = '';
+
             let localData = JSON.parse(localStorage.getItem(`pa_${pacienteId}`)) || [];
             localData.forEach(data => {
                 const li = document.createElement('li');
@@ -749,22 +922,26 @@
             const data = {
                 anotacoes,
                 pacienteId,
-                data: new Date().toISOString(),
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                data: new Date().toISOString()
             };
 
             try {
                 const docRef = await db.collection('AnotacoesMedicas').add(data);
                 data.id = docRef.id;
+
                 let localData = JSON.parse(localStorage.getItem(`anotacoes_${pacienteId}`)) || [];
                 localData.push(data);
                 localStorage.setItem(`anotacoes_${pacienteId}`, JSON.stringify(localData));
-                carregarListaAnotacoes(pacienteId);
+
                 document.getElementById(`anotacoes_${pacienteId}`).value = '';
+                carregarListaAnotacoes(pacienteId);
+                alert('Anotação salva com sucesso!');
             } catch (error) {
                 console.error('Erro ao salvar:', error);
-                data.id = Date.now().toString();
+                alert('Erro ao salvar a anotação. Salvando apenas localmente.');
                 let localData = JSON.parse(localStorage.getItem(`anotacoes_${pacienteId}`)) || [];
+                data.id = Date.now().toString();
                 localData.push(data);
                 localStorage.setItem(`anotacoes_${pacienteId}`, JSON.stringify(localData));
                 carregarListaAnotacoes(pacienteId);
@@ -788,6 +965,7 @@
         async function carregarListaAnotacoes(pacienteId) {
             const list = document.getElementById(`anotacoes-list_${pacienteId}`);
             list.innerHTML = '';
+
             let localData = JSON.parse(localStorage.getItem(`anotacoes_${pacienteId}`)) || [];
             localData.forEach(data => {
                 const li = document.createElement('li');
@@ -851,27 +1029,31 @@
             const data = {
                 medicacoes,
                 pacienteId,
-                data: new Date().toISOString(),
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                data: new Date().toISOString()
             };
 
             try {
                 const docRef = await db.collection('Medicacoes').add(data);
                 data.id = docRef.id;
+
                 let localData = JSON.parse(localStorage.getItem(`medicacoes_${pacienteId}`)) || [];
                 localData.push(data);
                 localStorage.setItem(`medicacoes_${pacienteId}`, JSON.stringify(localData));
-                carregarListaMedicacoes(pacienteId);
 
                 medicacoes.forEach(med => {
                     if (med.horario) {
                         agendarAlarmeMedicacao(pacienteId, med);
                     }
                 });
+
+                carregarListaMedicacoes(pacienteId);
+                alert('Medicações salvas com sucesso!');
             } catch (error) {
                 console.error('Erro ao salvar:', error);
-                data.id = Date.now().toString();
+                alert('Erro ao salvar as medicações. Salvando apenas localmente.');
                 let localData = JSON.parse(localStorage.getItem(`medicacoes_${pacienteId}`)) || [];
+                data.id = Date.now().toString();
                 localData.push(data);
                 localStorage.setItem(`medicacoes_${pacienteId}`, JSON.stringify(localData));
                 carregarListaMedicacoes(pacienteId);
@@ -895,6 +1077,7 @@
         async function carregarListaMedicacoes(pacienteId) {
             const list = document.getElementById(`medicacoes-list_${pacienteId}`);
             list.innerHTML = '';
+
             let localData = JSON.parse(localStorage.getItem(`medicacoes_${pacienteId}`)) || [];
             localData.forEach(data => {
                 const li = document.createElement('li');
@@ -921,6 +1104,9 @@
         }
 
         function agendarAlarmeMedicacao(pacienteId, med) {
+            if (Notification.permission !== 'granted') {
+                Notification.requestPermission();
+            }
             const [hora, minuto] = med.horario.split(':');
             const agora = new Date();
             const alarme = new Date();
@@ -930,10 +1116,12 @@
 
             const delay = alarme - agora;
             setTimeout(() => {
-                new Notification(`Hora de tomar ${med.nome}`, {
-                    body: `${med.dosagem} - ${med.posologia}`,
-                    requireInteraction: true
-                });
+                if (Notification.permission === 'granted') {
+                    new Notification(`Hora de tomar ${med.nome}`, {
+                        body: `${med.dosagem} - ${med.posologia}`,
+                        requireInteraction: true
+                    });
+                }
                 agendarAlarmeMedicacao(pacienteId, med); // Reagendar para o próximo dia
             }, delay);
         }
@@ -943,8 +1131,12 @@
             const docRef = db.collection('IngestaoAgua').doc(`${pacienteId}_${today}`);
             const doc = await docRef.get();
 
-            let count = doc.exists ? doc.data().copos || 0 : 0;
-            let goal = doc.exists ? doc.data().meta || 8 : 8;
+            let count = 0;
+            let goal = 8;
+            if (doc.exists) {
+                count = doc.data().copos || 0;
+                goal = doc.data().meta || 8;
+            }
 
             document.getElementById(`water-count_${pacienteId}`).textContent = count;
             document.getElementById(`water-goal_${pacienteId}`).value = goal;
@@ -960,13 +1152,19 @@
             let goal = doc.exists ? doc.data().meta || 8 : 8;
 
             count++;
-            const data = { copos: count, meta: goal, pacienteId, data: today, timestamp: firebase.firestore.FieldValue.serverTimestamp() };
+            const data = {
+                copos: count,
+                meta: goal,
+                pacienteId,
+                data: today,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
 
             try {
                 await docRef.set(data, { merge: true });
                 registrarHistoricoAgua(pacienteId, 'Adicionou 1 copo', true);
             } catch (error) {
-                console.error('Erro ao salvar:', error);
+                console.error('Erro ao salvar no Firestore:', error);
                 registrarHistoricoAgua(pacienteId, 'Adicionou 1 copo', false);
             }
 
@@ -983,14 +1181,22 @@
 
             if (count > 0) {
                 count--;
-                const data = { copos: count, meta: goal, pacienteId, data: today, timestamp: firebase.firestore.FieldValue.serverTimestamp() };
+                const data = {
+                    copos: count,
+                    meta: goal,
+                    pacienteId,
+                    data: today,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
                 try {
                     await docRef.set(data, { merge: true });
                     registrarHistoricoAgua(pacienteId, 'Removeu 1 copo', true);
                 } catch (error) {
-                    console.error('Erro ao salvar:', error);
+                    console.error('Erro ao salvar no Firestore:', error);
                     registrarHistoricoAgua(pacienteId, 'Removeu 1 copo', false);
                 }
+
                 document.getElementById(`water-count_${pacienteId}`).textContent = count;
                 atualizarProgressoAgua(pacienteId, count, goal);
             }
@@ -1010,9 +1216,113 @@
             }
         }
 
+        async function definirMetaAgua(pacienteId) {
+            const today = new Date().toISOString().split('T')[0];
+            const goal = parseInt(document.getElementById(`water-goal_${pacienteId}`).value);
+            if (!goal || goal <= 0) {
+                alert('Defina uma meta válida!');
+                return;
+            }
+
+            const docRef = db.collection('IngestaoAgua').doc(`${pacienteId}_${today}`);
+            const doc = await docRef.get();
+            const count = doc.exists ? doc.data().copos || 0 : 0;
+
+            const data = {
+                copos: count,
+                meta: goal,
+                pacienteId,
+                data: today,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            try {
+                await docRef.set(data, { merge: true });
+                atualizarProgressoAgua(pacienteId, count, goal);
+                alert('Meta definida com sucesso!');
+            } catch (error) {
+                console.error('Erro ao salvar no Firestore:', error);
+                alert('Erro ao definir meta. Salvando apenas localmente.');
+                let localData = JSON.parse(localStorage.getItem(`agua_${pacienteId}_${today}`)) || {};
+                localData.copos = count;
+                localData.meta = goal;
+                localStorage.setItem(`agua_${pacienteId}_${today}`, JSON.stringify(localData));
+                atualizarProgressoAgua(pacienteId, count, goal);
+            }
+        }
+
+        function atualizarProgressoAgua(pacienteId, count, goal) {
+            const progress = (count / goal) * 100;
+            const progressBar = document.getElementById(`water-progress_${pacienteId}`);
+            progressBar.style.width = `${Math.min(progress, 100)}%`;
+            if (count >= goal) {
+                progressBar.style.background = '#4caf50';
+            } else {
+                progressBar.style.background = '#2196f3';
+            }
+        }
+
+        function iniciarTimerAgua(pacienteId) {
+            if (Notification.permission !== 'granted') {
+                Notification.requestPermission();
+            }
+            const TWO_HOURS = 2 * 60 * 60 * 1000;
+            const timerDisplay = document.getElementById(`water-timer_${pacienteId}`);
+            const alertBox = document.getElementById(`water-alert_${pacienteId}`);
+
+            let timeLeft = TWO_HOURS;
+            clearInterval(window[`timer_${pacienteId}`]);
+
+            window[`timer_${pacienteId}`] = setInterval(() => {
+                timeLeft -= 1000;
+                const minutes = Math.floor((timeLeft / 1000 / 60) % 60);
+                const seconds = Math.floor((timeLeft / 1000) % 60);
+                timerDisplay.textContent = `Próximo lembrete: ${minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
+
+                if (timeLeft <= 0) {
+                    if (Notification.permission === 'granted') {
+                        new Notification('Hora de beber água!', {
+                            body: 'Lembre-se de se hidratar.',
+                            requireInteraction: true
+                        });
+                    }
+                    alertBox.style.display = 'block';
+                    setTimeout(() => alertBox.style.display = 'none', 5000);
+                    timeLeft = TWO_HOURS;
+                }
+            }, 1000);
+        }
+
+        async function registrarHistoricoAgua(pacienteId, acao, syncedWithFirestore) {
+            const data = {
+                pacienteId,
+                acao,
+                data: new Date().toISOString(),
+                timestamp: syncedWithFirestore ? firebase.firestore.FieldValue.serverTimestamp() : Date.now()
+            };
+
+            try {
+                if (syncedWithFirestore) {
+                    const docRef = await db.collection('HistoricoAgua').add(data);
+                    data.id = docRef.id;
+                } else {
+                    data.id = Date.now().toString();
+                }
+
+                let localData = JSON.parse(localStorage.getItem(`agua_historico_${pacienteId}`)) || [];
+                localData.push(data);
+                localStorage.setItem(`agua_historico_${pacienteId}`, JSON.stringify(localData));
+
+                carregarListaAgua(pacienteId);
+            } catch (error) {
+                console.error('Erro ao salvar histórico:', error);
+            }
+        }
+
         async function carregarListaAgua(pacienteId) {
             const list = document.getElementById(`water-list_${pacienteId}`);
             list.innerHTML = '';
+
             let localData = JSON.parse(localStorage.getItem(`agua_historico_${pacienteId}`)) || [];
             localData.forEach(data => {
                 const li = document.createElement('li');
@@ -1038,143 +1348,86 @@
             localStorage.setItem(`agua_historico_${pacienteId}`, JSON.stringify(localData));
         }
 
-        async function registrarHistoricoAgua(pacienteId, acao, synced) {
-            const data = {
-                pacienteId,
-                acao,
-                data: new Date().toISOString(),
-                timestamp: synced ? firebase.firestore.FieldValue.serverTimestamp() : Date.now()
-            };
-
-            try {
-                if (synced) {
-                    const docRef = await db.collection('HistoricoAgua').add(data);
-                    data.id = docRef.id;
-                } else {
-                    data.id = Date.now().toString();
-                }
-                let localData = JSON.parse(localStorage.getItem(`agua_historico_${pacienteId}`)) || [];
-                localData.push(data);
-                localStorage.setItem(`agua_historico_${pacienteId}`, JSON.stringify(localData));
-                carregarListaAgua(pacienteId);
-            } catch (error) {
-                console.error('Erro ao registrar histórico:', error);
-            }
-        }
-
-        function atualizarProgressoAgua(pacienteId, count, goal) {
-            const progress = (count / goal) * 100;
-            const progressBar = document.getElementById(`water-progress_${pacienteId}`);
-            progressBar.style.width = `${Math.min(progress, 100)}%`;
-        }
-
-        function iniciarTimerAgua(pacienteId) {
-            if (Notification.permission !== 'granted') {
-                Notification.requestPermission();
-            }
-
-            const TWO_HOURS = 2 * 60 * 60 * 1000;
-            setInterval(() => {
-                if (Notification.permission === 'granted') {
-                    new Notification('Hora de beber água!', {
-                        body: 'Lembre-se de se hidratar.',
-                        requireInteraction: true
-                    });
-                }
-            }, TWO_HOURS);
-        }
-
-        async function definirMetaAgua(pacienteId) {
-            const today = new Date().toISOString().split('T')[0];
-            const goal = parseInt(document.getElementById(`water-goal_${pacienteId}`).value);
-            if (!goal || goal <= 0) {
-                alert('Defina uma meta válida!');
-                return;
-            }
-
-            const docRef = db.collection('IngestaoAgua').doc(`${pacienteId}_${today}`);
-            const doc = await docRef.get();
-            const count = doc.exists ? doc.data().copos || 0 : 0;
-
-            await docRef.set({ copos: count, meta: goal, pacienteId, data: today, timestamp: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-            atualizarProgressoAgua(pacienteId, count, goal);
-        }
-
-        async function carregarUsuarios() {
-            if (usuariosListener) usuariosListener();
-            const lista = document.getElementById('lista-usuarios');
-            const search = document.getElementById('search-usuarios');
-
-            usuariosListener = db.collection('Alunos').onSnapshot(snapshot => {
-                lista.innerHTML = '';
-                const usuarios = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const filteredUsuarios = usuarios.filter(u => 
-                    u.nomeCompleto.toLowerCase().includes(search.value.toLowerCase()) ||
-                    u.usuario.toLowerCase().includes(search.value.toLowerCase())
-                );
-
-                filteredUsuarios.forEach(usuario => {
-                    const div = document.createElement('div');
-                    div.className = 'user-item';
-                    const isAdmin = usuario.admin === 'yes';
-                    let statusClass = usuario.status === 'aprovado' ? 'approved' : usuario.status === 'pendente' ? 'pending' : 'denied';
-                    div.innerHTML = `
-                        <div>
-                            <span class="status-indicator ${statusClass}"></span>
-                            <strong>${usuario.nomeCompleto}</strong> (${usuario.usuario})
-                            ${isAdmin ? '<span class="badge-admin">Admin</span>' : ''}
-                        </div>
-                        <button onclick="editarUsuario('${usuario.id}')">Editar</button>
-                    `;
-                    lista.appendChild(div);
+        async function carregarHistoricoPaciente(pacienteId) {
+            const paContainer = document.getElementById('historico-pa');
+            paContainer.innerHTML = '<h3>P.A. e Glicemia</h3>';
+            const paSnapshot = await db.collection('RegistrosPAeGlicemia')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            if (paSnapshot.empty) {
+                paContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                const list = document.createElement('ul');
+                list.className = 'records-list';
+                paSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const li = document.createElement('li');
+                    li.textContent = `• ${formatarDataTopico(data.data)} PA: ${data.pa} GLICEMIA: ${data.glicemia}`;
+                    list.appendChild(li);
                 });
-            });
+                paContainer.appendChild(list);
+            }
 
-            search.addEventListener('input', carregarUsuarios);
-        }
+            const anotContainer = document.getElementById('historico-anotacoes');
+            anotContainer.innerHTML = '<h3>Anotações Médicas</h3>';
+            const anotSnapshot = await db.collection('AnotacoesMedicas')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            if (anotSnapshot.empty) {
+                anotContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                const list = document.createElement('ul');
+                list.className = 'records-list';
+                anotSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const li = document.createElement('li');
+                    li.textContent = `• ${formatarDataTopico(data.data)} ${data.anotacoes}`;
+                    list.appendChild(li);
+                });
+                anotContainer.appendChild(list);
+            }
 
-        async function editarUsuario(id) {
-            const doc = await db.collection('Alunos').doc(id).get();
-            const usuario = doc.data();
+            const medContainer = document.getElementById('historico-medicacoes');
+            medContainer.innerHTML = '<h3>Medicações</h3>';
+            const medSnapshot = await db.collection('Medicacoes')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            if (medSnapshot.empty) {
+                medContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                const list = document.createElement('ul');
+                list.className = 'records-list';
+                medSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const li = document.createElement('li');
+                    li.textContent = `• ${formatarDataTopico(data.data)} ${data.medicacoes.map(m => `${m.nome} ${m.dosagem} ${m.posologia}${m.horario ? ` (${m.horario})` : ''}`).join(', ')}`;
+                    list.appendChild(li);
+                });
+                medContainer.appendChild(list);
+            }
 
-            const form = document.createElement('form');
-            form.className = 'edit-form';
-            form.innerHTML = `
-                <input type="text" name="nomeCompleto" value="${usuario.nomeCompleto}" required>
-                <input type="text" name="matricula" value="${usuario.matricula}" required>
-                <input type="email" name="email" value="${usuario.email}" required>
-                <input type="date" name="dataNascimento" value="${usuario.dataNascimento}" required>
-                <input type="text" name="whatsapp" value="${usuario.whatsapp}" required>
-                <input type="text" name="senha" value="${usuario.senha}" required>
-                <select name="admin">
-                    <option value="no" ${usuario.admin !== 'yes' ? 'selected' : ''}>Usuário Comum</option>
-                    <option value="yes" ${usuario.admin === 'yes' ? 'selected' : ''}>Administrador</option>
-                </select>
-                <select name="status">
-                    <option value="aprovado" ${usuario.status === 'aprovado' ? 'selected' : ''}>Aprovado</option>
-                    <option value="pendente" ${usuario.status === 'pendente' ? 'selected' : ''}>Pendente</option>
-                    <option value="negado" ${usuario.status === 'negado' ? 'selected' : ''}>Negado</option>
-                </select>
-                <button type="submit">Salvar</button>
-            `;
-
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const data = {
-                    nomeCompleto: form.nomeCompleto.value,
-                    matricula: form.matricula.value,
-                    email: form.email.value,
-                    dataNascimento: form.dataNascimento.value,
-                    whatsapp: form.whatsapp.value,
-                    senha: form.senha.value,
-                    admin: form.admin.value,
-                    status: form.status.value
-                };
-                await db.collection('Alunos').doc(id).update(data);
-                fecharModal();
-            });
-
-            mostrarModal('Editar Usuário', form);
+            const aguaContainer = document.getElementById('historico-agua');
+            aguaContainer.innerHTML = '<h3>Ingestão de Água</h3>';
+            const aguaSnapshot = await db.collection('HistoricoAgua')
+                .where('pacienteId', '==', pacienteId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            if (aguaSnapshot.empty) {
+                aguaContainer.innerHTML += '<p>Nenhum registro encontrado.</p>';
+            } else {
+                const list = document.createElement('ul');
+                list.className = 'records-list';
+                aguaSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    const li = document.createElement('li');
+                    li.textContent = `• ${formatarDataTopico(data.data)} ${data.acao}`;
+                    list.appendChild(li);
+                });
+                aguaContainer.appendChild(list);
+            }
         }
 
         async function verPerfilPaciente(pacienteId) {
@@ -1191,10 +1444,179 @@
                 <input type="text" value="${paciente.whatsapp}" readonly>
                 <input type="text" value="${paciente.usuario}" readonly>
             `;
-            mostrarModal('Perfil do Paciente', form);
+
+            mostrarModal('Perfil do Paciente', form, 'sucesso');
         }
 
-        document.addEventListener('DOMContentLoaded', async () => {
+        async function editarUsuario(id) {
+            const doc = await db.collection('Alunos').doc(id).get();
+            const usuario = doc.data();
+
+            const form = document.createElement('form');
+            form.className = 'edit-form';
+            form.innerHTML = `
+                <input type="text" name="nomeCompleto" value="${usuario.nomeCompleto}" placeholder="Nome Completo" required>
+                <input type="text" name="matricula" value="${usuario.matricula}" placeholder="Matrícula" required>
+                <input type="email" name="email" value="${usuario.email}" placeholder="Email" required>
+                <input type="date" name="dataNascimento" value="${usuario.dataNascimento}" required>
+                <input type="text" name="whatsapp" value="${usuario.whatsapp}" placeholder="WhatsApp" required>
+                <input type="text" name="senha" value="${usuario.senha}" placeholder="Senha" required>
+                <select name="admin">
+                    <option value="no" ${usuario.admin !== 'yes' ? 'selected' : ''}>Usuário Comum</option>
+                    <option value="yes" ${usuario.admin === 'yes' ? 'selected' : ''}>Administrador</option>
+                </select>
+                <select name="status">
+                    <option value="aprovado" ${usuario.status === 'aprovado' ? 'selected' : ''}>Aprovado</option>
+                    <option value="pendente" ${usuario.status === 'pendente' ? 'selected' : ''}>Pendente</option>
+                    <option value="negado" ${usuario.status === 'negado' ? 'selected' : ''}>Negado</option>
+                </select>
+                <textarea name="motivoNegacao" placeholder="Motivo da negação">${usuario.motivoNegacao || ''}</textarea>
+                <button type="submit">Salvar</button>
+                <button type="button" onclick="excluirUsuario('${id}')">Excluir</button>
+            `;
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const data = {
+                    nomeCompleto: form.nomeCompleto.value,
+                    matricula: form.matricula.value,
+                    email: form.email.value,
+                    dataNascimento: form.dataNascimento.value,
+                    whatsapp: form.whatsapp.value,
+                    senha: form.senha.value,
+                    admin: form.admin.value,
+                    status: form.status.value,
+                    motivoNegacao: form.status.value === 'negado' ? form.motivoNegacao.value : ''
+                };
+
+                if (form.status.value === 'negado' && !form.motivoNegacao.value) {
+                    alert('O motivo da negação é obrigatório ao negar um usuário.');
+                    return;
+                }
+
+                try {
+                    await db.collection('Alunos').doc(id).update(data);
+                    fecharModal();
+                } catch (error) {
+                    console.error('Erro ao atualizar usuário:', error);
+                    alert('Erro ao salvar as alterações: ' + error.message);
+                }
+            });
+
+            mostrarModal('Editar Usuário', form, 'sucesso');
+        }
+
+        async function excluirUsuario(id) {
+            if (confirm('Deseja realmente excluir este usuário?')) {
+                await db.collection('Alunos').doc(id).delete();
+                fecharModal();
+            }
+        }
+
+        function abrirFormularioBroadcast() {
+            const form = document.createElement('form');
+            form.innerHTML = `
+                <textarea name="mensagem" placeholder="Digite a mensagem" rows="4" required></textarea>
+                <select name="destinatarios" required>
+                    <option value="todos">Todos</option>
+                    <option value="alunos">Apenas Alunos</option>
+                    <option value="pacientes">Apenas Pacientes</option>
+                    <option value="admins">Apenas Administradores</option>
+                </select>
+                <div class="toggle-btn" id="broadcast-toggle" onclick="toggleBroadcast(this)"></div>
+            `;
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const mensagem = form.mensagem.value;
+                const destinatarios = form.destinatarios.value;
+
+                try {
+                    await db.collection('Broadcast').doc('mensagemAtiva').set({
+                        mensagem,
+                        destinatarios,
+                        ativo: true,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    document.getElementById('broadcast-btn').classList.add('active');
+                    document.getElementById('broadcast-toggle').classList.add('active');
+                    fecharModal();
+                } catch (error) {
+                    console.error('Erro ao enviar broadcast:', error);
+                    alert('Erro ao enviar a mensagem.');
+                }
+            });
+
+            db.collection('Broadcast').doc('mensagemAtiva').get().then(doc => {
+                if (doc.exists && doc.data().ativo) {
+                    document.getElementById('broadcast-toggle').classList.add('active');
+                }
+            });
+
+            mostrarModal('Enviar Mensagem', form, 'sucesso');
+        }
+
+        async function toggleBroadcast(toggleBtn) {
+            const isActive = toggleBtn.classList.contains('active');
+            try {
+                if (isActive) {
+                    await db.collection('Broadcast').doc('mensagemAtiva').update({ ativo: false });
+                    toggleBtn.classList.remove('active');
+                    document.getElementById('broadcast-btn').classList.remove('active');
+                    fecharBroadcastModal();
+                } else {
+                    const form = toggleBtn.closest('form');
+                    const mensagem = form.querySelector('textarea[name="mensagem"]').value;
+                    const destinatarios = form.querySelector('select[name="destinatarios"]').value;
+                    if (!mensagem) {
+                        alert('Digite uma mensagem antes de ativar!');
+                        return;
+                    }
+                    await db.collection('Broadcast').doc('mensagemAtiva').set({
+                        mensagem,
+                        destinatarios,
+                        ativo: true,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    toggleBtn.classList.add('active');
+                    document.getElementById('broadcast-btn').classList.add('active');
+                }
+            } catch (error) {
+                console.error('Erro ao alternar broadcast:', error);
+                alert('Erro ao alternar o broadcast.');
+            }
+        }
+
+        async function verificarBroadcast() {
+            db.collection('Broadcast').doc('mensagemAtiva').onSnapshot(async doc => {
+                if (doc.exists && doc.data().ativo) {
+                    const { mensagem, destinatarios } = doc.data();
+                    let exibir = false;
+
+                    if (destinatarios === 'todos') exibir = true;
+                    else if (destinatarios === 'pacientes' && currentPacienteId) exibir = true;
+                    else if (destinatarios === 'admins' && currentUserId) {
+                        const userDoc = await db.collection('Alunos').doc(currentUserId).get();
+                        if (userDoc.exists && userDoc.data().admin === 'yes') exibir = true;
+                    } else if (destinatarios === 'alunos' && currentUserId) {
+                        const userDoc = await db.collection('Alunos').doc(currentUserId).get();
+                        if (userDoc.exists && userDoc.data().admin !== 'yes') exibir = true;
+                    }
+
+                    if (exibir) {
+                        mostrarBroadcast(mensagem);
+                        document.getElementById('broadcast-btn').classList.add('active');
+                    } else {
+                        fecharBroadcastModal();
+                    }
+                } else {
+                    fecharBroadcastModal();
+                    document.getElementById('broadcast-btn').classList.remove('active');
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
             const session = JSON.parse(localStorage.getItem('userSession'));
             if (session) {
                 if (session.type === 'paciente') {
@@ -1210,28 +1632,37 @@
                 return;
             }
 
-            document.getElementById('formCadastroAluno').addEventListener('submit', async (e) => {
+            const formAluno = document.getElementById('formCadastroAluno');
+
+            formAluno.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const values = Array.from(e.target.elements).filter(el => el.tagName === 'INPUT').map(el => el.value);
-                const usuario = values[1];
-                const senha = formatarDataBrasileira(values[3]);
+                const values = Array.from(formAluno.elements)
+                    .filter(el => el.tagName === 'INPUT')
+                    .map(el => el.value);
 
-                await db.collection('Alunos').doc(usuario).set({
-                    nomeCompleto: values[0],
-                    matricula: values[1],
-                    email: values[2],
-                    dataNascimento: values[3],
-                    whatsapp: values[4],
-                    usuario,
-                    senha,
-                    status: 'pendente',
-                    admin: 'no',
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                });
+                try {
+                    const usuario = values[0].replace(/\s+/g, '').toLowerCase() + values[1];
+                    const senha = formatarDataBrasileira(values[3]);
 
-                mostrarModal('Cadastro Realizado', `Usuário: ${usuario}\nSenha: ${senha}\nAguarde aprovação.`);
-                e.target.reset();
-                mostrarTela('login-aluno');
+                    await db.collection('Alunos').doc(usuario).set({
+                        nomeCompleto: values[0],
+                        matricula: values[1],
+                        email: values[2],
+                        dataNascimento: values[3],
+                        whatsapp: values[4],
+                        usuario: values[1],
+                        senha: senha,
+                        status: 'pendente',
+                        admin: 'no',
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    mostrarModal('Cadastro Realizado', `Seu cadastro está pendente de aprovação.\nUsuário: ${values[1]}\nSenha: ${senha}`, 'pendente');
+                    formAluno.reset();
+                    mostrarTela('login-aluno');
+                } catch (error) {
+                    console.error('Erro no cadastro:', error);
+                }
             });
 
             document.getElementById('formLoginAluno').addEventListener('submit', async (e) => {
@@ -1239,59 +1670,82 @@
                 const matricula = e.target.elements[0].value;
                 const senha = e.target.elements[1].value;
 
-                if (matricula === 'admin' && senha === 'admin') {
-                    currentUserId = 'admin';
-                    localStorage.setItem('userSession', JSON.stringify({ type: 'admin', id: 'admin' }));
-                    mostrarTela('painel-admin');
-                    return;
-                }
+                try {
+                    if (matricula === 'admin' && senha === 'admin') {
+                        currentUserId = 'admin';
+                        localStorage.setItem('userSession', JSON.stringify({ type: 'admin', id: 'admin' }));
+                        mostrarModal('Sucesso', 'Login como administrador realizado com sucesso!', 'sucesso');
+                        mostrarTela('painel-admin');
+                        carregarUsuarios();
+                        return;
+                    }
 
-                const snapshot = await db.collection('Alunos')
-                    .where('usuario', '==', matricula)
-                    .where('senha', '==', senha)
-                    .get();
+                    const snapshot = await db.collection('Alunos')
+                        .where('usuario', '==', matricula)
+                        .where('senha', '==', senha)
+                        .get();
 
-                if (snapshot.empty) {
-                    mostrarModal('Erro', 'Credenciais inválidas!', 'alert');
-                    return;
-                }
+                    if (snapshot.empty) {
+                        mostrarModal('Erro', 'Credenciais inválidas!', 'negado');
+                        return;
+                    }
 
-                const aluno = snapshot.docs[0].data();
-                const alunoId = snapshot.docs[0].id;
+                    const aluno = snapshot.docs[0].data();
+                    const alunoId = snapshot.docs[0].id;
 
-                if (aluno.status === 'pendente') {
-                    mostrarModal('Aviso', 'Aguarde aprovação do administrador.');
-                } else if (aluno.status === 'negado') {
-                    mostrarModal('Erro', 'Cadastro negado!', 'alert');
-                } else {
-                    currentUserId = alunoId;
-                    localStorage.setItem('userSession', JSON.stringify({ type: aluno.admin === 'yes' ? 'admin' : 'aluno', id: alunoId }));
-                    mostrarTela(aluno.admin === 'yes' ? 'painel-admin' : 'area-aluno');
+                    if (aluno.status === 'pendente') {
+                        mostrarModal('Aviso', 'Seu cadastro está aguardando aprovação do administrador.', 'pendente');
+                        return;
+                    } else if (aluno.status === 'negado') {
+                        mostrarModal('Erro', 'Cadastro não aprovado! Contate o suporte.', 'negado');
+                        mostrarTela('login-aluno');
+                    } else {
+                        currentUserId = alunoId;
+                        localStorage.setItem('userSession', JSON.stringify({ type: aluno.admin === 'yes' ? 'admin' : 'aluno', id: alunoId }));
+                        if (aluno.admin === 'yes') {
+                            mostrarTela('painel-admin');
+                            carregarUsuarios();
+                        } else {
+                            if (aluno.mensagemAdmin) {
+                                document.getElementById('mensagem-admin').classList.remove('hidden');
+                                document.getElementById('texto-mensagem').textContent = aluno.mensagemAdmin;
+                            }
+                            mostrarTela('area-aluno');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Erro no login:', error);
                 }
             });
 
             document.getElementById('formCadastroPaciente').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const elements = e.target.elements;
+                
                 const nome = elements[0].value.toLowerCase().replace(/\s+/g, '');
                 const dataNasc = elements[1].value;
                 const senha = formatarDataBrasileira(dataNasc);
-                const usuario = nome + dataNasc.split('-').reverse().join('');
+                const dataFormatada = dataNasc.split('-').reverse().join('');
+                const usuario = nome + dataFormatada;
 
-                await db.collection('Pacientes').doc(usuario).set({
-                    nomeCompleto: elements[0].value,
-                    dataNascimento: dataNasc,
-                    email: elements[2].value || '',
-                    cartaoSus: elements[3].value || '',
-                    whatsapp: elements[4].value,
-                    usuario,
-                    senha,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                mostrarModal('Cadastro Realizado', `Usuário: ${usuario}\nSenha: ${senha}`);
-                e.target.reset();
-                mostrarTela('login-paciente');
+                try {
+                    await db.collection('Pacientes').doc(usuario).set({
+                        nomeCompleto: elements[0].value,
+                        dataNascimento: dataNasc,
+                        email: elements[2].value || '',
+                        cartaoSus: elements[3].value || '',
+                        whatsapp: elements[4].value,
+                        usuario,
+                        senha: senha,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    
+                    mostrarModal('Cadastro Realizado', `Cadastro realizado!\nUsuário: ${usuario}\nSenha: ${senha}`, 'sucesso');
+                    e.target.reset();
+                    mostrarTela('login-paciente');
+                } catch (error) {
+                    console.error('Erro no cadastro:', error);
+                }
             });
 
             document.getElementById('formLoginPaciente').addEventListener('submit', async (e) => {
@@ -1299,20 +1753,29 @@
                 const usuario = e.target.elements[0].value;
                 const senha = e.target.elements[1].value;
 
-                const snapshot = await db.collection('Pacientes')
-                    .where('usuario', '==', usuario)
-                    .where('senha', '==', senha)
-                    .get();
+                try {
+                    const snapshot = await db.collection('Pacientes')
+                        .where('usuario', '==', usuario)
+                        .where('senha', '==', senha)
+                        .get();
 
-                if (snapshot.empty) {
-                    mostrarModal('Erro', 'Credenciais inválidas!', 'alert');
-                    return;
+                    if (snapshot.empty) {
+                        mostrarModal('Erro', 'Credenciais inválidas!', 'negado');
+                        return;
+                    }
+
+                    const paciente = snapshot.docs[0].data();
+                    currentPacienteId = snapshot.docs[0].id;
+                    localStorage.setItem('userSession', JSON.stringify({ type: 'paciente', id: currentPacienteId }));
+                    mostrarModal('Sucesso', 'Login realizado com sucesso!', 'sucesso');
+                    mostrarTela('tela-modulos');
+                } catch (error) {
+                    console.error('Erro no login:', error);
                 }
-
-                currentPacienteId = snapshot.docs[0].id;
-                localStorage.setItem('userSession', JSON.stringify({ type: 'paciente', id: currentPacienteId }));
-                mostrarTela('tela-modulos');
             });
+
+            document.getElementById('overlay').addEventListener('click', fecharModal);
+            verificarBroadcast();
         });
     </script>
 </body>
