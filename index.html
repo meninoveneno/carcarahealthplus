@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#8B0000"> <!-- Cor da barra de status -->
+    <meta name="apple-mobile-web-app-capable" content="yes"> <!-- Suporte iOS tela cheia -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes"> <!-- Suporte Android tela cheia -->
     <title>Carcará Health +</title>
+    <link rel="manifest" href="/manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     
     <!-- Firebase SDK -->
@@ -549,6 +554,19 @@
             alert('Erro ao carregar Firebase: ' + e.message);
         }
 
+        // Registro do Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('Service Worker registrado com sucesso:', registration);
+                    })
+                    .catch(error => {
+                        console.log('Erro ao registrar Service Worker:', error);
+                    });
+            });
+        }
+
         function formatarDataBrasileira(data) {
             const partes = data.split('-');
             return partes[2] + partes[1] + partes[0];
@@ -826,7 +844,6 @@
             });
         }
 
-        // Funções de salvamento, exclusão e carregamento
         async function salvarPA(pacienteId) {
             const pa = document.getElementById(`pa_${pacienteId}`).value;
             const glicemia = document.getElementById(`glicemia_${pacienteId}`).value;
