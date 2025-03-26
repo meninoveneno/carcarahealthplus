@@ -121,6 +121,11 @@
             max-width: 700px;
         }
 
+        .modal-sm {
+            max-width: 300px;
+            padding: 15px;
+        }
+
         .modal.pendente {
             background: #ffeb3b;
             color: black;
@@ -224,9 +229,12 @@
         }
 
         .module-btn {
-            padding: 8px;
+            padding: 12px;
             font-size: 0.8rem;
             min-width: 60px;
+            width: 100%;
+            margin: 5px 0;
+            white-space: nowrap;
         }
 
         .profile-btn {
@@ -592,10 +600,23 @@
 
         .chat-message {
             background: #f1f1f1;
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 8px;
-            color: black;
+            padding: 10px 15px;
+            border-radius: 15px;
+            margin: 8px 0;
+            max-width: 80%;
+            word-break: break-word;
+        }
+
+        .chat-message.admin {
+            background: #2196F3;
+            color: white;
+            margin-left: auto;
+        }
+
+        .message-time {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 5px;
         }
 
         .help-request-item {
@@ -660,8 +681,34 @@
             margin-bottom: 10px;
         }
 
-        .module-toggle label {
-            flex: 1;
+        .password-toggle {
+            position: relative;
+        }
+
+        .password-toggle input {
+            padding-right: 40px;
+        }
+
+        .password-toggle .toggle-icon {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .help-form input,
+        .help-form select,
+        .help-form textarea {
+            margin: 8px 0;
+            width: 100%;
         }
     </style>
 </head>
@@ -709,10 +756,10 @@
                 <label class="form-label">WhatsApp</label>
                 <input type="text" id="edit-user-whatsapp" required>
             </div>
-            <div>
+            <div class="password-toggle">
                 <label class="form-label">Senha</label>
                 <input type="text" id="edit-user-senha" required>
-                <small style="color: #aaa;">Senha visível para edição</small>
+                <span class="toggle-icon" onclick="togglePasswordVisibility('edit-user-senha')">👁️</span>
             </div>
             <div>
                 <label class="form-label">Status</label>
@@ -731,6 +778,43 @@
             </div>
             <div class="form-buttons">
                 <button type="submit" class="btn-save">Salvar</button>
+                <button type="button" class="btn-cancel" onclick="fecharModal()">Cancelar</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Modal de Edição de Paciente -->
+    <div class="modal" id="edit-paciente-modal">
+        <h3>Editar Paciente</h3>
+        <form id="edit-paciente-form" class="edit-user-form">
+            <input type="hidden" id="edit-paciente-id">
+            <div>
+                <label class="form-label">Nome Completo</label>
+                <input type="text" id="edit-paciente-nome" required>
+            </div>
+            <div>
+                <label class="form-label">Data de Nascimento</label>
+                <input type="date" id="edit-paciente-nascimento" required>
+            </div>
+            <div>
+                <label class="form-label">WhatsApp</label>
+                <input type="text" id="edit-paciente-whatsapp" required>
+            </div>
+            <div>
+                <label class="form-label">Email</label>
+                <input type="email" id="edit-paciente-email">
+            </div>
+            <div>
+                <label class="form-label">Cartão SUS</label>
+                <input type="text" id="edit-paciente-cartao">
+            </div>
+            <div class="password-toggle">
+                <label class="form-label">Senha</label>
+                <input type="text" id="edit-paciente-senha" required>
+                <span class="toggle-icon" onclick="togglePasswordVisibility('edit-paciente-senha')">👁️</span>
+            </div>
+            <div class="form-buttons">
+                <button type="button" class="btn-save" onclick="salvarEdicaoPaciente()">Salvar</button>
                 <button type="button" class="btn-cancel" onclick="fecharModal()">Cancelar</button>
             </div>
         </form>
@@ -760,6 +844,21 @@
         </div>
     </div>
 
+    <!-- Modal de Solicitação de Ajuda -->
+    <div class="modal" id="help-request-modal">
+        <h3>Solicitar Ajuda</h3>
+        <form class="help-form" onsubmit="enviarSolicitacaoAjuda(event)">
+            <select id="help-type" required>
+                <option value="">Selecione o tipo</option>
+                <option value="paciente">Paciente</option>
+                <option value="aluno">Aluno</option>
+            </select>
+            <input type="text" id="help-subject" placeholder="Assunto" required>
+            <textarea id="help-description" placeholder="Descreva seu problema" rows="4" required></textarea>
+            <button type="submit">Enviar Solicitação</button>
+        </form>
+    </div>
+
     <!-- Pop-up de Mensagem -->
     <div class="mensagem-popup" id="mensagemPopup">
         <button onclick="fecharPopup()">&times;</button>
@@ -783,7 +882,6 @@
             <option value="administradores">Somente Administradores</option>
         </select>
         <textarea id="texto-mensagem" rows="4" placeholder="Digite sua mensagem..."></textarea>
-        <button onclick="enviarMensagemAdmin()">Enviar Mensagem</button>
         <button class="back-btn" onclick="mostrarTela('painel-admin')">Voltar</button>
     </div>
 
@@ -1020,6 +1118,11 @@
             });
         }
 
+        function togglePasswordVisibility(fieldId) {
+            const field = document.getElementById(fieldId);
+            field.type = field.type === 'password' ? 'text' : 'password';
+        }
+
         function formatarDataBrasileira(data) {
             const partes = data.split('-');
             return partes[2] + partes[1] + partes[0];
@@ -1056,7 +1159,7 @@
 
         function mostrarModal(titulo, conteudo, status) {
             const modal = document.getElementById('modal');
-            modal.className = `modal ${status || ''}`;
+            modal.className = `modal ${status || ''} ${status === 'pendente' ? 'modal-sm' : ''}`;
             document.getElementById('modal-title').textContent = titulo;
             if (typeof conteudo === 'string') {
                 document.getElementById('modal-content').textContent = conteudo;
@@ -1072,8 +1175,10 @@
         function fecharModal() {
             document.getElementById('modal').style.display = 'none';
             document.getElementById('edit-user-modal').style.display = 'none';
+            document.getElementById('edit-paciente-modal').style.display = 'none';
             document.getElementById('preview-modulo-modal').style.display = 'none';
             document.getElementById('help-chat-modal').style.display = 'none';
+            document.getElementById('help-request-modal').style.display = 'none';
             document.getElementById('overlay').style.display = 'none';
             
             if (chatListener) {
@@ -1951,40 +2056,15 @@
                 if (doc.exists) {
                     const paciente = doc.data();
                     
-                    document.getElementById('modal-title').textContent = `Editar Paciente - ${paciente.nomeCompleto}`;
+                    document.getElementById('edit-paciente-id').value = pacienteId;
+                    document.getElementById('edit-paciente-nome').value = paciente.nomeCompleto || '';
+                    document.getElementById('edit-paciente-nascimento').value = paciente.dataNascimento || '';
+                    document.getElementById('edit-paciente-whatsapp').value = paciente.whatsapp || '';
+                    document.getElementById('edit-paciente-email').value = paciente.email || '';
+                    document.getElementById('edit-paciente-cartao').value = paciente.cartaoSus || '';
+                    document.getElementById('edit-paciente-senha').value = paciente.senha || '';
                     
-                    const form = document.createElement('form');
-                    form.className = 'edit-user-form';
-                    form.innerHTML = `
-                        <div>
-                            <label class="form-label">Nome Completo</label>
-                            <input type="text" id="edit-paciente-nome" value="${paciente.nomeCompleto || ''}" required>
-                        </div>
-                        <div>
-                            <label class="form-label">Data de Nascimento</label>
-                            <input type="date" id="edit-paciente-nascimento" value="${paciente.dataNascimento || ''}" required>
-                        </div>
-                        <div>
-                            <label class="form-label">WhatsApp</label>
-                            <input type="text" id="edit-paciente-whatsapp" value="${paciente.whatsapp || ''}" required>
-                        </div>
-                        <div>
-                            <label class="form-label">Email</label>
-                            <input type="email" id="edit-paciente-email" value="${paciente.email || ''}">
-                        </div>
-                        <div>
-                            <label class="form-label">Cartão SUS</label>
-                            <input type="text" id="edit-paciente-cartao" value="${paciente.cartaoSus || ''}">
-                        </div>
-                        <div class="form-buttons">
-                            <button type="button" class="btn-save" onclick="salvarEdicaoPaciente('${pacienteId}')">Salvar</button>
-                            <button type="button" class="btn-cancel" onclick="fecharModal()">Cancelar</button>
-                        </div>
-                    `;
-                    
-                    document.getElementById('modal-content').innerHTML = '';
-                    document.getElementById('modal-content').appendChild(form);
-                    document.getElementById('modal').style.display = 'block';
+                    document.getElementById('edit-paciente-modal').style.display = 'block';
                     document.getElementById('overlay').style.display = 'block';
                 }
             } catch (error) {
@@ -1993,13 +2073,15 @@
             }
         }
 
-        async function salvarEdicaoPaciente(pacienteId) {
+        async function salvarEdicaoPaciente() {
+            const pacienteId = document.getElementById('edit-paciente-id').value;
             const dados = {
                 nomeCompleto: document.getElementById('edit-paciente-nome').value,
                 dataNascimento: document.getElementById('edit-paciente-nascimento').value,
                 whatsapp: document.getElementById('edit-paciente-whatsapp').value,
                 email: document.getElementById('edit-paciente-email').value || null,
                 cartaoSus: document.getElementById('edit-paciente-cartao').value || null,
+                senha: document.getElementById('edit-paciente-senha').value,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
@@ -2007,6 +2089,7 @@
                 await db.collection('Pacientes').doc(pacienteId).update(dados);
                 mostrarModal('Sucesso', 'Paciente atualizado com sucesso!', 'sucesso');
                 carregarPacientesAdmin();
+                fecharModal();
             } catch (error) {
                 console.error('Erro ao atualizar paciente:', error);
                 mostrarModal('Erro', 'Erro ao atualizar paciente!', 'negado');
@@ -2037,18 +2120,29 @@
 
         // Funções para sistema de ajuda
         async function abrirChatAjuda() {
+            document.getElementById('help-request-modal').style.display = 'block';
+            document.getElementById('overlay').style.display = 'block';
+        }
+
+        async function enviarSolicitacaoAjuda(event) {
+            event.preventDefault();
+            
+            const solicitacao = {
+                type: document.getElementById('help-type').value,
+                subject: document.getElementById('help-subject').value,
+                description: document.getElementById('help-description').value,
+                status: 'open',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                pacienteId: currentPacienteId
+            };
+
             try {
-                await db.collection('helpRequests').add({
-                    pacienteId: currentPacienteId,
-                    status: 'open',
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    messages: []
-                });
-                
-                mostrarModal('Sucesso', 'Sua solicitação de ajuda foi enviada! Um administrador entrará em contato em breve.', 'sucesso');
+                await db.collection('helpRequests').add(solicitacao);
+                mostrarModal('Sucesso', 'Solicitação enviada com sucesso!', 'sucesso');
+                fecharModal();
             } catch (error) {
-                console.error('Erro ao solicitar ajuda:', error);
-                mostrarModal('Erro', 'Erro ao enviar solicitação de ajuda!', 'negado');
+                console.error('Erro ao enviar solicitação:', error);
+                mostrarModal('Erro', 'Erro ao enviar solicitação!', 'negado');
             }
         }
 
@@ -2066,21 +2160,26 @@
                     
                     for (const doc of snapshot.docs) {
                         const chamado = doc.data();
-                        const pacienteDoc = await db.collection('Pacientes').doc(chamado.pacienteId).get();
+                        let nomePaciente = "Paciente não encontrado";
                         
-                        if (pacienteDoc.exists) {
-                            const paciente = pacienteDoc.data();
-                            const div = document.createElement('div');
-                            div.className = 'help-request-item';
-                            div.innerHTML = `
-                                <div>
-                                    <strong>${paciente.nomeCompleto}</strong>
-                                    <p>Solicitado em: ${chamado.createdAt.toDate().toLocaleString('pt-BR')}</p>
-                                </div>
-                                <button onclick="abrirChatAdmin('${doc.id}', '${paciente.nomeCompleto}')">Responder</button>
-                            `;
-                            lista.appendChild(div);
+                        if (chamado.pacienteId) {
+                            const pacienteDoc = await db.collection('Pacientes').doc(chamado.pacienteId).get();
+                            if (pacienteDoc.exists) {
+                                nomePaciente = pacienteDoc.data().nomeCompleto;
+                            }
                         }
+                        
+                        const div = document.createElement('div');
+                        div.className = 'help-request-item';
+                        div.innerHTML = `
+                            <div>
+                                <strong>${nomePaciente}</strong>
+                                <p>${chamado.subject}</p>
+                                <small>Solicitado em: ${chamado.createdAt.toDate().toLocaleString('pt-BR')}</small>
+                            </div>
+                            <button onclick="abrirChatAdmin('${doc.id}', '${nomePaciente}')">Responder</button>
+                        `;
+                        lista.appendChild(div);
                     }
                     
                     if (lista.innerHTML === '') {
@@ -2112,10 +2211,12 @@
                     if (chamado.messages && chamado.messages.length > 0) {
                         chamado.messages.forEach(msg => {
                             const div = document.createElement('div');
-                            div.className = 'chat-message';
+                            div.className = `chat-message ${msg.sender === 'admin' ? 'admin' : ''}`;
                             div.innerHTML = `
-                                <p><strong>${msg.sender === 'admin' ? 'Admin' : 'Paciente'}:</strong> ${msg.text}</p>
-                                <small>${msg.timestamp.toDate().toLocaleTimeString('pt-BR')}</small>
+                                <p>${msg.text}</p>
+                                <div class="message-time">
+                                    ${msg.timestamp.toDate().toLocaleTimeString('pt-BR')}
+                                </div>
                             `;
                             messagesContainer.appendChild(div);
                         });
@@ -2297,13 +2398,21 @@
                     const div = document.createElement('div');
                     div.className = 'user-item';
                     
-                    let buttonsHTML = `
+                    let buttonsHTML = '';
+                    
+                    // Criar grid para os botões dos módulos
+                    const gridDiv = document.createElement('div');
+                    gridDiv.className = 'modules-grid';
+                    
+                    // Adicionar botões padrão
+                    buttonsHTML += `
                         <button class="module-btn ${modulosAtivos.includes('pa_glicemia') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'pa_glicemia', this)">P.A./Glicemia</button>
                         <button class="module-btn ${modulosAtivos.includes('anotacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'anotacoes', this)">Anotações</button>
                         <button class="module-btn ${modulosAtivos.includes('medicacoes') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'medicacoes', this)">Medicações</button>
                         <button class="module-btn ${modulosAtivos.includes('modulo4') ? 'active' : ''}" onclick="toggleModulo('${paciente.id}', 'modulo4', this)">Lembrete Água</button>
                     `;
 
+                    // Adicionar módulos customizados
                     customModulesSnapshot.forEach(doc => {
                         const moduloId = `custom_${doc.id}`;
                         buttonsHTML += `
@@ -2314,16 +2423,17 @@
                         `;
                     });
 
+                    // Adicionar botão de perfil
                     buttonsHTML += `<button class="profile-btn" onclick="verPerfilPaciente('${paciente.id}')">👤</button>`;
 
+                    gridDiv.innerHTML = buttonsHTML;
+                    
                     div.innerHTML = `
                         <div>
                             <strong>${paciente.nomeCompleto}</strong>
                         </div>
-                        <div>
-                            ${buttonsHTML}
-                        </div>
                     `;
+                    div.appendChild(gridDiv);
                     lista.appendChild(div);
                 }
             });
